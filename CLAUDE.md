@@ -65,3 +65,46 @@ npm run start
 - Documentation content lives in `content/` directory as MDX files
 - Fumadocs automatically processes and generates navigation
 - Icons can be specified in frontmatter and are rendered as SVG
+
+### Article Ordering Convention
+- Use numerical prefixes in filenames for chronological ordering: `01-article.mdx`, `02-article.mdx`
+- URLs remain clean: `/backend/01-jwt.mdx` → `/docs/backend/01-jwt` 
+- Navigation titles come from frontmatter `title` field, not filename
+- New articles should increment the number (newest articles at the bottom)
+- Example: `backend/01-jwt.mdx`, `backend/02-encode.mdx`
+
+### Git Commit Policy
+- Don't use Claude Code default commit messages
+- Follow structured commit message format below
+
+#### Commit Message Standards
+
+**New Articles/Pages:**
+```bash
+# Format: feat(section): add [topic] article
+feat(backend): add JWT authentication mechanism article
+feat(frontend): add React hooks optimization guide  
+feat(leetcode): add binary tree traversal solutions
+```
+
+**Content Updates:**
+```bash
+# Format: content(section): update [specific change]
+content(backend): update JWT examples with new security practices
+content(backend): add code examples to encode/decode article
+content(backend): fix typos in authentication flow
+```
+
+**Other Common Cases:**
+```bash
+# Architecture/Configuration changes
+chore: update article ordering system with numeric prefixes
+config: add new Fumadocs components import
+
+# Fixes
+fix(content): correct broken links in navigation
+fix(backend): resolve code syntax highlighting issues
+
+# Refactoring
+refactor: reorganize content structure and navigation
+```
