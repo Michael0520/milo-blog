@@ -16,10 +16,11 @@ export default defineConfig({
       projects: ['./tsconfig.json'],
     }),
     tanstackStart({
-      customViteReactPlugin: true,
+      target: 'static',
       prerender: {
         enabled: true,
       },
+      customViteReactPlugin: true,
     }),
     react(),
   ],
