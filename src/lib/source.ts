@@ -1,15 +1,9 @@
+import { docs } from '@/.source';
 import { loader } from 'fumadocs-core/source';
-import * as icons from 'lucide-static';
-import { create, docs } from '../../source.generated';
 
+// See https://fumadocs.vercel.app/docs/headless/source-api for more info
 export const source = loader({
-  source: await create.sourceAsync(docs.doc, docs.meta),
+  // it assigns a URL to your pages
   baseUrl: '/docs',
-  icon(icon) {
-    if (!icon) {
-      return;
-    }
-
-    if (icon in icons) return icons[icon as keyof typeof icons];
-  },
+  source: docs.toFumadocsSource(),
 });
