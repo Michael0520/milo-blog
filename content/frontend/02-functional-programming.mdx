@@ -1,0 +1,520 @@
+---
+title: Functional Programming Concepts - Curry、Compose、Pipe
+description: 探討函數式編程中的 Curry、Compose、Pipe 的實作與應用
+icon: BookOpen
+---
+
+import { Tabs, Tab } from 'fumadocs-ui/components/tabs';
+import { Steps, Step } from 'fumadocs-ui/components/steps';
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Files, File, Folder } from 'fumadocs-ui/components/files';
+
+> 深入理解函數式編程的核心概念：Curry、Compose、Pipe 的實作與應用場景
+
+函數式編程已經成為現代 JavaScript 和 TypeScript 開發中不可或缺的一部分。今天我們要深入探討三個核心概念：**Curry（柯里化）**、**Compose（組合）** 和 **Pipe（管道）**，了解它們的實作原理和實際應用場景。
+
+## 概念比較
+
+<Callout type="info">
+讓我們先從高層次來理解這三個概念的差異和應用場景
+</Callout>
+
+| 概念 | 核心思想 | 主要用途 | 執行方式 |
+|------|----------|----------|----------|
+| **Curry** | 函數部分應用 | 創建可重用的專用函數 | 將多參數函數轉換為單參數函數鏈 |
+| **Compose** | 函數組合（右到左） | 創建複雜的數據處理管道 | `compose(f, g, h)(x) = f(g(h(x)))` |
+| **Pipe** | 函數管道（左到右） | 創建直觀的數據流 | `pipe(f, g, h)(x) = h(g(f(x)))` |
+
+## 實作與範例
+
+### Curry（柯里化）
+
+<Callout type="warn">
+Curry 不只是學術概念，在實際開發中有很多實用的應用場景！
+</Callout>
+
+<Steps>
+
+<Step>
+### 基礎實作
+
+```typescript
+// 基礎 Curry 函數實作
+function curry<A, B, C>(fn: (a: A, b: B) => C): (a: A) => (b: B) => C;
+function curry<A, B, C, D>(fn: (a: A, b: B, c: C) => D): (a: A) => (b: B) => (c: C) => D;
+function curry<A, B, C, D, E>(fn: (a: A, b: B, c: C, d: D) => E): (a: A) => (b: B) => (c: C) => (d: D) => E;
+
+function curry(fn: Function) {
+  return function curried(...args: any[]) {
+    if (args.length >= fn.length) {
+      return fn.apply(this, args);
+    } else {
+      return function (...args2: any[]) {
+        return curried.apply(this, args.concat(args2));
+      };
+    }
+  };
+}
+```
+</Step>
+
+<Step>
+### 實際應用：API 請求配置
+
+```typescript
+// API 請求的 Curry 應用
+type RequestConfig = {
+  baseURL: string;
+  headers: Record<string, string>;
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE';
+};
+
+// 原始函數
+const makeRequest = (config: RequestConfig, endpoint: string, data?: any) => {
+  return fetch(`${config.baseURL}${endpoint}`, {
+    method: config.method,
+    headers: config.headers,
+    body: data ? JSON.stringify(data) : undefined,
+  });
+};
+
+// Curry 化後
+const curriedRequest = curry(makeRequest);
+
+// 創建專用的 API 客戶端
+const apiClient = curriedRequest({
+  baseURL: 'https://api.example.com',
+  headers: { 'Content-Type': 'application/json' },
+  method: 'GET'
+});
+
+// 創建專用的端點函數
+const getUsers = apiClient('/users');
+const getUser = apiClient('/user');
+
+// 使用
+const users = await getUsers();
+const user = await getUser();
+```
+</Step>
+
+<Step>
+### 高級範例：事件處理
+
+```typescript
+// 事件處理的 Curry 應用
+const handleEvent = curry((eventType: string, selector: string, handler: Function) => {
+  document.addEventListener(eventType, (e) => {
+    const target = e.target as Element;
+    if (target.matches(selector)) {
+      handler(e);
+    }
+  });
+});
+
+// 創建專用的事件處理器
+const onClick = handleEvent('click');
+const onSubmit = handleEvent('submit');
+
+// 使用
+onClick('.btn-primary')((e) => console.log('Primary button clicked'));
+onSubmit('form.contact')((e) => console.log('Contact form submitted'));
+```
+</Step>
+
+</Steps>
+
+### Compose 與 Pipe
+
+<Callout type="info">
+Compose 和 Pipe 都是函數組合，差異在於執行順序的方向
+</Callout>
+
+<Tabs items={["Compose Implementation", "Pipe Implementation", "Comparison"]}>
+
+<Tab value="Compose Implementation">
+```typescript
+// Compose 實作（右到左執行）
+type Func<A, B> = (a: A) => B;
+
+function compose<A, B, C>(f: Func<B, C>, g: Func<A, B>): Func<A, C>;
+function compose<A, B, C, D>(f: Func<C, D>, g: Func<B, C>, h: Func<A, B>): Func<A, D>;
+function compose<A, B, C, D, E>(
+  f: Func<D, E>, 
+  g: Func<C, D>, 
+  h: Func<B, C>, 
+  i: Func<A, B>
+): Func<A, E>;
+
+function compose(...fns: Function[]) {
+  return (value: any) => fns.reduceRight((acc, fn) => fn(acc), value);
+}
+
+// 使用範例
+const addOne = (x: number) => x + 1;
+const multiplyByTwo = (x: number) => x * 2;
+const toString = (x: number) => x.toString();
+
+// compose: toString(multiplyByTwo(addOne(5)))
+const processNumber = compose(toString, multiplyByTwo, addOne);
+console.log(processNumber(5)); // "12"
+```
+</Tab>
+
+<Tab value="Pipe Implementation">
+```typescript
+// Pipe 實作（左到右執行）
+function pipe<A, B>(f: Func<A, B>): Func<A, B>;
+function pipe<A, B, C>(f: Func<A, B>, g: Func<B, C>): Func<A, C>;
+function pipe<A, B, C, D>(
+  f: Func<A, B>, 
+  g: Func<B, C>, 
+  h: Func<C, D>
+): Func<A, D>;
+function pipe<A, B, C, D, E>(
+  f: Func<A, B>, 
+  g: Func<B, C>, 
+  h: Func<C, D>, 
+  i: Func<D, E>
+): Func<A, E>;
+
+function pipe(...fns: Function[]) {
+  return (value: any) => fns.reduce((acc, fn) => fn(acc), value);
+}
+
+// 使用範例
+const processNumberPipe = pipe(addOne, multiplyByTwo, toString);
+console.log(processNumberPipe(5)); // "12"
+```
+</Tab>
+
+<Tab value="Comparison">
+```typescript
+// 執行順序比較
+const value = 5;
+
+// Compose（右到左）: toString(multiplyByTwo(addOne(5)))
+const composeResult = compose(toString, multiplyByTwo, addOne)(value);
+
+// Pipe（左到右）: toString(multiplyByTwo(addOne(5)))
+const pipeResult = pipe(addOne, multiplyByTwo, toString)(value);
+
+// 結果相同，但閱讀順序不同
+console.log(composeResult); // "12"
+console.log(pipeResult);    // "12"
+
+// 數據處理範例
+const users = [
+  { id: 1, name: 'Alice', age: 25, active: true },
+  { id: 2, name: 'Bob', age: 30, active: false },
+  { id: 3, name: 'Charlie', age: 35, active: true },
+];
+
+// 使用 pipe（更直觀的閱讀順序）
+const processUsers = pipe(
+  (users: typeof users) => users.filter(u => u.active),
+  (users) => users.map(u => ({ ...u, displayName: u.name.toUpperCase() })),
+  (users) => users.sort((a, b) => a.age - b.age)
+);
+
+console.log(processUsers(users));
+// [{ id: 1, name: 'Alice', age: 25, active: true, displayName: 'ALICE' }, ...]
+```
+</Tab>
+
+</Tabs>
+
+## 工具結合
+
+### 與 RxJS 的整合
+
+<Callout type="success">
+函數式編程概念與 RxJS 的結合能創造出強大的數據流處理能力
+</Callout>
+
+<Steps>
+
+<Step>
+### 搜尋功能實作
+
+```typescript
+import { fromEvent, pipe, debounceTime, distinctUntilChanged, switchMap, map } from 'rxjs';
+
+// 搜尋 API 函數
+const searchAPI = curry((endpoint: string, query: string) => 
+  fetch(`${endpoint}?q=${encodeURIComponent(query)}`)
+    .then(res => res.json())
+);
+
+// 專用搜尋函數
+const searchUsers = searchAPI('/api/users');
+const searchProducts = searchAPI('/api/products');
+
+// RxJS 搜尋流
+const searchInput = document.getElementById('search') as HTMLInputElement;
+
+const search$ = fromEvent(searchInput, 'input').pipe(
+  map(event => (event.target as HTMLInputElement).value),
+  debounceTime(300),
+  distinctUntilChanged(),
+  switchMap(query => query ? searchUsers(query) : Promise.resolve([]))
+);
+
+search$.subscribe(results => {
+  console.log('Search results:', results);
+});
+```
+</Step>
+
+<Step>
+### 數據轉換管道
+
+```typescript
+import { of, pipe, map, filter, tap } from 'rxjs';
+
+// 數據轉換函數
+const validateUser = (user: any) => user.email && user.name;
+const transformUser = (user: any) => ({
+  ...user,
+  fullName: `${user.firstName} ${user.lastName}`,
+  isAdult: user.age >= 18
+});
+const logUser = tap((user: any) => console.log('Processing user:', user.name));
+
+// 組合成處理管道
+const userProcessingPipe = pipe(
+  filter(validateUser),
+  map(transformUser),
+  logUser
+);
+
+// 使用
+const users$ = of(
+  { firstName: 'John', lastName: 'Doe', age: 25, email: 'john@example.com' },
+  { firstName: 'Jane', lastName: 'Smith', age: 17, email: '' },
+);
+
+users$.pipe(userProcessingPipe).subscribe(user => {
+  console.log('Processed user:', user);
+});
+```
+</Step>
+
+</Steps>
+
+## 常見應用場景
+
+<Files>
+  <Folder name="應用場景" defaultOpen>
+    <File name="api-clients.ts">API 客戶端配置</File>
+    <File name="form-validation.ts">表單驗證管道</File>
+    <File name="data-transformation.ts">數據轉換流程</File>
+    <File name="event-handling.ts">事件處理系統</File>
+  </Folder>
+</Files>
+
+### 1. API 客戶端配置
+
+```typescript
+// 使用 Curry 創建靈活的 API 客戶端
+const createAPIClient = curry((baseConfig: RequestConfig, endpoint: string, options?: RequestInit) => {
+  return fetch(`${baseConfig.baseURL}${endpoint}`, {
+    ...baseConfig,
+    ...options,
+  });
+});
+
+const apiV1 = createAPIClient({ 
+  baseURL: 'https://api.example.com/v1',
+  headers: { 'Authorization': 'Bearer token' }
+});
+
+const apiV2 = createAPIClient({ 
+  baseURL: 'https://api.example.com/v2',
+  headers: { 'Authorization': 'Bearer token2' }
+});
+```
+
+### 2. 表單驗證管道
+
+<Tabs items={["Validation Pipeline", "Error Handling", "Usage Example"]}>
+
+<Tab value="Validation Pipeline">
+```typescript
+// 驗證函數
+const required = (field: string) => (value: any) => 
+  value ? { valid: true } : { valid: false, error: `${field} is required` };
+
+const minLength = (min: number, field: string) => (value: string) =>
+  value.length >= min ? { valid: true } : { valid: false, error: `${field} must be at least ${min} characters` };
+
+const email = (value: string) => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(value) ? { valid: true } : { valid: false, error: 'Invalid email format' };
+};
+
+// 組合驗證器
+const validateForm = (data: any) => {
+  const emailValidation = pipe(
+    required('Email'),
+    (result: any) => result.valid ? email(data.email) : result
+  )();
+
+  const passwordValidation = pipe(
+    required('Password'),
+    (result: any) => result.valid ? minLength(8, 'Password')(data.password) : result
+  )();
+
+  return {
+    email: emailValidation,
+    password: passwordValidation,
+    isValid: emailValidation.valid && passwordValidation.valid
+  };
+};
+```
+</Tab>
+
+<Tab value="Error Handling">
+```typescript
+// 錯誤處理管道
+const handleError = curry((errorType: string, handler: Function, result: any) => {
+  if (!result.valid && result.error.includes(errorType)) {
+    handler(result.error);
+  }
+  return result;
+});
+
+const logError = handleError('required', console.error);
+const showUIError = handleError('Invalid', (error: string) => {
+  document.getElementById('error')!.textContent = error;
+});
+
+const validationPipeline = pipe(
+  validateForm,
+  logError,
+  showUIError
+);
+```
+</Tab>
+
+<Tab value="Usage Example">
+```typescript
+// 使用範例
+const formData = {
+  email: 'user@example.com',
+  password: 'securePassword123'
+};
+
+const validationResult = validationPipeline(formData);
+console.log(validationResult);
+
+// 結果：
+// {
+//   email: { valid: true },
+//   password: { valid: true },
+//   isValid: true
+// }
+```
+</Tab>
+
+</Tabs>
+
+### 3. 數據轉換流程
+
+```typescript
+// 數據轉換管道
+const transformUserData = pipe(
+  // 1. 清理數據
+  (users: any[]) => users.filter(user => user.active),
+  
+  // 2. 標準化格式
+  (users) => users.map(user => ({
+    ...user,
+    name: user.name.trim().toLowerCase(),
+    email: user.email.toLowerCase()
+  })),
+  
+  // 3. 添加計算字段
+  (users) => users.map(user => ({
+    ...user,
+    displayName: user.name.split(' ')
+      .map((n: string) => n.charAt(0).toUpperCase() + n.slice(1))
+      .join(' '),
+    accountAge: new Date().getFullYear() - new Date(user.createdAt).getFullYear()
+  })),
+  
+  // 4. 排序
+  (users) => users.sort((a, b) => b.accountAge - a.accountAge)
+);
+```
+
+## 選擇指南
+
+<Callout type="info">
+不同情況下應該選擇不同的函數式編程模式
+</Callout>
+
+### 何時使用 Curry
+
+✅ **適用場景：**
+- 需要創建專用函數時
+- API 客戶端配置
+- 事件處理器配置
+- 高度可重用的工具函數
+
+❌ **避免使用：**
+- 簡單的一次性函數
+- 性能敏感的場景
+- 團隊不熟悉函數式編程
+
+### 何時使用 Compose vs Pipe
+
+**Compose (右到左)：**
+- 數學函數組合
+- 與函數式編程庫整合
+- 強調函數的數學特性
+
+**Pipe (左到右)：**
+- 數據處理流程
+- 更直觀的閱讀順序
+- 與大多數開發者的思維模式一致
+
+## 總結
+
+<Callout type="success">
+函數式編程不只是概念，更是提升代碼質量的實用工具
+</Callout>
+
+### 核心要點
+
+1. **Curry** 讓你創建高度可重用的專用函數
+2. **Compose** 提供數學式的函數組合
+3. **Pipe** 提供直觀的數據流處理
+
+### 實踐建議
+
+<Steps>
+
+<Step>
+**從簡單開始**
+先在小功能中應用，熟悉語法和模式
+</Step>
+
+<Step>
+**注重可讀性**
+選擇讓團隊更容易理解的模式（通常是 Pipe）
+</Step>
+
+<Step>
+**漸進採用**
+不需要重寫現有代碼，在新功能中逐步應用
+</Step>
+
+<Step>
+**工具整合**
+與 RxJS、Ramda 等函數式編程庫結合使用
+</Step>
+
+</Steps>
+
+函數式編程的這些概念不僅能讓你寫出更優雅的代碼，還能提高代碼的可測試性、可重用性和可維護性。在現代 TypeScript 開發中，掌握這些技巧會讓你成為更好的開發者。

@@ -1,0 +1,83 @@
+---
+title: Hello World
+description: My first blog post on this Fumadocs site
+icon: Sparkles
+---
+
+# Hello World!
+
+Welcome to my first blog post! This is a simple example of how to create content using Fumadocs with TanStack Start.
+
+## Getting Started
+
+This blog post demonstrates various Fumadocs features:
+
+### Basic Markdown
+
+You can use all standard Markdown features:
+- **Bold text**
+- *Italic text*
+- `inline code`
+- Links to [external sites](https://fumadocs.dev)
+
+### Code Examples
+
+Here's a simple JavaScript example:
+
+```javascript
+function sayHello(name) {
+  console.log(`Hello, ${name}!`);
+  return `Welcome to my blog, ${name}`;
+}
+
+sayHello('World');
+```
+
+And here's some TypeScript:
+
+```typescript
+interface BlogPost {
+  title: string;
+  description: string;
+  publishedAt: Date;
+  tags?: string[];
+}
+
+const firstPost: BlogPost = {
+  title: "Hello World",
+  description: "My first blog post",
+  publishedAt: new Date()
+};
+```
+
+### Interactive Components
+
+Fumadocs provides built-in components like Cards:
+
+<Cards>
+  <Card
+    title="TanStack Start"
+    href="https://tanstack.com/start"
+    description="Learn more about the React framework powering this site"
+  />
+  <Card
+    title="Fumadocs"
+    href="https://fumadocs.dev"
+    description="Explore the documentation framework used here"
+  />
+</Cards>
+
+### Tips and Notes
+
+> **Note**: This is how you create callout boxes in Fumadocs.
+
+## What's Next?
+
+Now that you have your first post set up, you can:
+
+1. Create more content in the `content/` directory
+2. Customize the layout and styling
+3. Add more interactive components
+4. Set up a proper blog structure if needed
+
+Happy blogging! 🚀
