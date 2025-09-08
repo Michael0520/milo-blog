@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
-    "build": "vite build && tsc --noEmit",
+    "build": "vite build && tsc --noEmit && echo '{\"version\":3}' > .vercel/output/config.json",
     "start": "node .output/server/index.mjs"
   },
   "dependencies": {
