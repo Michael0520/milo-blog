@@ -1,16 +1,6 @@
 {
   "buildCommand": "pnpm run build",
-  "devCommand": "pnpm run dev", 
-  "installCommand": "pnpm install",
-  "functions": {
-    ".output/server/index.mjs": {
-      "runtime": "nodejs20.x"
-    }
-  },
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/api/index"
-    }
-  ]
+  "outputDirectory": ".output/public",
+  "devCommand": "pnpm run dev",
+  "installCommand": "pnpm install"
 }
