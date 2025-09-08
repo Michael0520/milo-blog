@@ -3,6 +3,7 @@
   "pages": [
     "index",
     "backend",
-    "frontend"
+    "frontend",
+    "leetcode"
   ]
 }
