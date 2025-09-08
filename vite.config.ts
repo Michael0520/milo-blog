@@ -16,9 +16,14 @@ export default defineConfig({
       projects: ['./tsconfig.json'],
     }),
     tanstackStart({
-      target: 'static',
       prerender: {
         enabled: true,
+        autoSubfolderIndex: true,
+        crawlLinks: true,
+        concurrency: 10,
+        onSuccess: ({ page }) => {
+          console.log(`✓ Prerendered: ${page.path}`);
+        },
       },
       customViteReactPlugin: true,
     }),

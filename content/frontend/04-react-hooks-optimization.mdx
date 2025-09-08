@@ -1,0 +1,1539 @@
+---
+title: useCallback vs useMemo：React 效能優化完全指南
+description: 深入理解 useCallback、useMemo 和 React.memo 的使用時機與最佳實踐
+icon: Zap
+---
+
+import { Tabs, Tab } from 'fumadocs-ui/components/tabs';
+import { Steps, Step } from 'fumadocs-ui/components/steps';
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Files, File, Folder } from 'fumadocs-ui/components/files';
+
+> 掌握 React 效能優化的核心：何時使用 useCallback、useMemo 和 React.memo
+
+在 React 應用開發中，效能優化是一個永恆的話題。今天我們要深入探討三個重要的優化工具：**useCallback**、**useMemo** 和 **React.memo**，了解它們的使用時機、最佳實踐，以及常見的誤用情況。
+
+## 效能問題的根源
+
+<Callout type="warn">
+在深入優化技巧之前，我們需要先理解 React 中效能問題的根本原因
+</Callout>
+
+### 常見效能問題
+
+<Steps>
+
+<Step>
+### 不必要的重新渲染
+組件在 props 沒有實際改變時仍然重新渲染
+</Step>
+
+<Step>
+### 昂貴的計算重複執行
+每次渲染都執行複雜的運算邏輯
+</Step>
+
+<Step>
+### 函數重複創建
+每次渲染都創建新的函數實例
+</Step>
+
+<Step>
+### 深度比較失效
+物件和陣列的引用比較導致子組件不必要更新
+</Step>
+
+</Steps>
+
+### 問題案例展示
+
+```tsx
+// ❌ 效能問題的典型例子
+function App() {
+  const [count, setCount] = useState(0);
+  const [users, setUsers] = useState([]);
+
+  // 問題1: 每次渲染都創建新函數
+  const handleClick = () => {
+    console.log('Button clicked');
+  };
+
+  // 問題2: 每次渲染都計算 expensiveValue
+  const expensiveValue = users
+    .filter(user => user.active)
+    .map(user => ({ ...user, displayName: user.name.toUpperCase() }))
+    .reduce((acc, user) => acc + user.score, 0);
+
+  // 問題3: 每次渲染都創建新物件
+  const config = {
+    theme: 'dark',
+    showDetails: true
+  };
+
+  return (
+    <div>
+      <button onClick={() => setCount(count + 1)}>Count: {count}</button>
+      <ExpensiveComponent 
+        onClick={handleClick}
+        value={expensiveValue}
+        config={config}
+      />
+    </div>
+  );
+}
+```
+
+## useCallback 深度解析
+
+<Callout type="info">
+useCallback 用於記憶函數，避免在每次渲染時創建新的函數實例
+</Callout>
+
+### 基本概念與語法
+
+<Tabs items={["基本語法", "使用場景", "常見誤區"]}>
+
+<Tab value="基本語法">
+```tsx
+import { useCallback, useState } from 'react';
+
+function ParentComponent() {
+  const [count, setCount] = useState(0);
+  const [items, setItems] = useState([]);
+
+  // ✅ 正確使用 useCallback
+  const handleClick = useCallback(() => {
+    console.log('Button clicked');
+  }, []); // 沒有依賴，函數永遠不會改變
+
+  // ✅ 帶有依賴的 useCallback
+  const handleItemClick = useCallback((itemId: string) => {
+    setItems(prev => prev.filter(item => item.id !== itemId));
+  }, []); // setItems 是穩定的，不需要加入依賴
+
+  // ✅ 依賴於 state 的 useCallback
+  const handleCountClick = useCallback(() => {
+    setCount(prev => prev + 1);
+  }, []); // 使用函數式更新，不需要 count 作為依賴
+
+  return (
+    <div>
+      <ChildComponent onClick={handleClick} />
+      <ItemList onItemClick={handleItemClick} />
+      <Counter onClick={handleCountClick} />
+    </div>
+  );
+}
+```
+</Tab>
+
+<Tab value="使用場景">
+**何時使用 useCallback：**
+
+1. **傳遞給子組件的事件處理器**
+```tsx
+// ✅ 避免子組件不必要的重新渲染
+const ChildComponent = React.memo(({ onClick }) => {
+  console.log('Child rendered');
+  return <button onClick={onClick}>Click me</button>;
+});
+
+function Parent() {
+  const [count, setCount] = useState(0);
+  
+  // 沒有 useCallback，每次都會重新渲染 ChildComponent
+  const handleClick = useCallback(() => {
+    alert('Clicked!');
+  }, []);
+
+  return (
+    <div>
+      <button onClick={() => setCount(count + 1)}>Count: {count}</button>
+      <ChildComponent onClick={handleClick} />
+    </div>
+  );
+}
+```
+
+2. **作為其他 hooks 的依賴**
+```tsx
+function UserProfile({ userId }: { userId: string }) {
+  const [user, setUser] = useState(null);
+
+  // ✅ 避免 useEffect 不必要的重新執行
+  const fetchUser = useCallback(async (id: string) => {
+    const response = await fetch(`/api/users/${id}`);
+    const userData = await response.json();
+    setUser(userData);
+  }, []);
+
+  useEffect(() => {
+    fetchUser(userId);
+  }, [userId, fetchUser]); // fetchUser 現在是穩定的
+
+  return user ? <div>{user.name}</div> : <div>Loading...</div>;
+}
+```
+
+3. **高頻率調用的函數**
+```tsx
+function SearchComponent() {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState([]);
+
+  // ✅ 避免 debounce 函數重複創建
+  const debouncedSearch = useCallback(
+    debounce(async (searchQuery: string) => {
+      if (searchQuery) {
+        const data = await searchAPI(searchQuery);
+        setResults(data);
+      }
+    }, 300),
+    []
+  );
+
+  useEffect(() => {
+    debouncedSearch(query);
+  }, [query, debouncedSearch]);
+
+  return (
+    <input
+      value={query}
+      onChange={(e) => setQuery(e.target.value)}
+      placeholder="Search..."
+    />
+  );
+}
+```
+</Tab>
+
+<Tab value="常見誤區">
+**❌ 常見誤用情況：**
+
+1. **過度使用 useCallback**
+```tsx
+// ❌ 沒有必要的 useCallback
+function Component() {
+  const [value, setValue] = useState('');
+
+  // 這個函數不會傳遞給子組件，不需要 useCallback
+  const handleChange = useCallback((e) => {
+    setValue(e.target.value);
+  }, []);
+
+  return <input onChange={handleChange} value={value} />;
+}
+```
+
+2. **依賴項錯誤**
+```tsx
+// ❌ 缺少依賴項
+function Component({ userId }) {
+  const [data, setData] = useState(null);
+
+  const fetchData = useCallback(async () => {
+    const result = await fetch(`/api/data/${userId}`);
+    setData(await result.json());
+  }, []); // ❌ 應該包含 userId
+
+  // ✅ 正確的依賴項
+  const fetchDataCorrect = useCallback(async () => {
+    const result = await fetch(`/api/data/${userId}`);
+    setData(await result.json());
+  }, [userId]);
+}
+```
+
+3. **忘記使用 React.memo**
+```tsx
+// ❌ 只有 useCallback 沒有 React.memo，優化無效
+function Parent() {
+  const handleClick = useCallback(() => {}, []);
+  return <Child onClick={handleClick} />; // Child 沒有被 memo 包裝
+}
+
+// ✅ 配合使用才有效果
+const Child = React.memo(({ onClick }) => {
+  return <button onClick={onClick}>Click</button>;
+});
+```
+</Tab>
+
+</Tabs>
+
+## useMemo 深度解析
+
+<Callout type="info">
+useMemo 用於記憶計算結果，避免在每次渲染時重複執行昂貴的計算
+</Callout>
+
+### 核心概念與實際應用
+
+<Tabs items={["基本用法", "進階場景", "性能對比"]}>
+
+<Tab value="基本用法">
+```tsx
+import { useMemo, useState } from 'react';
+
+function ExpensiveComponent({ items, filter }) {
+  const [sortOrder, setSortOrder] = useState('asc');
+
+  // ✅ 記憶昂貴的計算
+  const processedItems = useMemo(() => {
+    console.log('Processing items...'); // 只在依賴改變時執行
+    
+    return items
+      .filter(item => item.category === filter)
+      .map(item => ({
+        ...item,
+        displayName: item.name.toUpperCase(),
+        formattedPrice: new Intl.NumberFormat('zh-TW', {
+          style: 'currency',
+          currency: 'TWD'
+        }).format(item.price)
+      }))
+      .sort((a, b) => {
+        const order = sortOrder === 'asc' ? 1 : -1;
+        return a.price > b.price ? order : -order;
+      });
+  }, [items, filter, sortOrder]);
+
+  // ✅ 記憶複雜物件
+  const chartConfig = useMemo(() => ({
+    type: 'bar',
+    data: {
+      labels: processedItems.map(item => item.name),
+      datasets: [{
+        data: processedItems.map(item => item.price)
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: {
+          position: 'top',
+        },
+      },
+    }
+  }), [processedItems]);
+
+  return (
+    <div>
+      <select onChange={(e) => setSortOrder(e.target.value)}>
+        <option value="asc">價格低到高</option>
+        <option value="desc">價格高到低</option>
+      </select>
+      
+      <ItemList items={processedItems} />
+      <Chart config={chartConfig} />
+    </div>
+  );
+}
+```
+</Tab>
+
+<Tab value="進階場景">
+**1. 避免子組件重新渲染**
+```tsx
+function Dashboard({ users, filters }) {
+  // ✅ 記憶過濾後的數據
+  const filteredUsers = useMemo(() => {
+    return users.filter(user => {
+      return Object.keys(filters).every(key => {
+        if (!filters[key]) return true;
+        return user[key] === filters[key];
+      });
+    });
+  }, [users, filters]);
+
+  // ✅ 記憶統計數據
+  const statistics = useMemo(() => ({
+    total: filteredUsers.length,
+    active: filteredUsers.filter(u => u.active).length,
+    inactive: filteredUsers.filter(u => !u.active).length,
+    averageAge: filteredUsers.reduce((sum, u) => sum + u.age, 0) / filteredUsers.length
+  }), [filteredUsers]);
+
+  return (
+    <div>
+      <StatsCard stats={statistics} />
+      <UserTable users={filteredUsers} />
+    </div>
+  );
+}
+
+// 子組件只有在 props 真的改變時才重新渲染
+const StatsCard = React.memo(({ stats }) => {
+  console.log('StatsCard rendered');
+  return (
+    <div>
+      <div>總用戶: {stats.total}</div>
+      <div>活躍用戶: {stats.active}</div>
+      <div>平均年齡: {stats.averageAge.toFixed(1)}</div>
+    </div>
+  );
+});
+```
+
+**2. 複雜的表單驗證**
+```tsx
+function AdvancedForm({ initialData }) {
+  const [formData, setFormData] = useState(initialData);
+  const [touched, setTouched] = useState({});
+
+  // ✅ 記憶驗證結果
+  const validation = useMemo(() => {
+    const errors = {};
+    
+    // 複雜的驗證邏輯
+    if (!formData.email) {
+      errors.email = '郵箱為必填';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      errors.email = '郵箱格式不正確';
+    }
+    
+    if (!formData.password) {
+      errors.password = '密碼為必填';
+    } else if (formData.password.length < 8) {
+      errors.password = '密碼至少需要8個字符';
+    } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)) {
+      errors.password = '密碼需要包含大小寫字母和數字';
+    }
+    
+    if (formData.confirmPassword !== formData.password) {
+      errors.confirmPassword = '確認密碼不匹配';
+    }
+
+    return {
+      errors,
+      isValid: Object.keys(errors).length === 0,
+      hasErrors: Object.keys(errors).some(key => touched[key])
+    };
+  }, [formData, touched]);
+
+  return (
+    <form>
+      <FormField 
+        name="email"
+        value={formData.email}
+        error={touched.email ? validation.errors.email : undefined}
+        onChange={updateFormData}
+        onBlur={markAsTouched}
+      />
+      {/* 其他表單字段... */}
+      <button disabled={!validation.isValid}>提交</button>
+    </form>
+  );
+}
+```
+</Tab>
+
+<Tab value="性能对比">
+**效能對比測試**
+```tsx
+// 測試組件：比較有無 useMemo 的效能差異
+function PerformanceTest({ data }) {
+  const [rerenderCount, setRerenderCount] = useState(0);
+
+  // ❌ 沒有 useMemo：每次都重新計算
+  const expensiveComputationWithoutMemo = () => {
+    console.time('Without useMemo');
+    const result = data.map(item => {
+      // 模擬昂貴的計算
+      let sum = 0;
+      for (let i = 0; i < 100000; i++) {
+        sum += item.value * Math.sqrt(i);
+      }
+      return { ...item, computed: sum };
+    });
+    console.timeEnd('Without useMemo');
+    return result;
+  };
+
+  // ✅ 使用 useMemo：只在 data 改變時計算
+  const expensiveComputationWithMemo = useMemo(() => {
+    console.time('With useMemo');
+    const result = data.map(item => {
+      let sum = 0;
+      for (let i = 0; i < 100000; i++) {
+        sum += item.value * Math.sqrt(i);
+      }
+      return { ...item, computed: sum };
+    });
+    console.timeEnd('With useMemo');
+    return result;
+  }, [data]);
+
+  return (
+    <div>
+      <button onClick={() => setRerenderCount(count => count + 1)}>
+        重新渲染 ({rerenderCount})
+      </button>
+      
+      <div>
+        <h3>沒有 useMemo (每次都計算)</h3>
+        <div>結果數量: {expensiveComputationWithoutMemo().length}</div>
+      </div>
+      
+      <div>
+        <h3>使用 useMemo (只在依賴改變時計算)</h3>
+        <div>結果數量: {expensiveComputationWithMemo.length}</div>
+      </div>
+    </div>
+  );
+}
+
+// 效能測試結果：
+// - 首次渲染：兩者時間相似
+// - 後續重新渲染：useMemo 版本明顯更快
+// - 當 data 不變時，useMemo 版本幾乎不消耗時間
+```
+</Tab>
+
+</Tabs>
+
+## React.memo 完全指南
+
+<Callout type="success">
+React.memo 是一個高階組件，可以避免功能組件在 props 沒有改變時的重新渲染
+</Callout>
+
+### 基本使用與進階技巧
+
+<Tabs items={["基本用法", "自訂比較", "與 hooks 結合"]}>
+
+<Tab value="基本用法">
+```tsx
+// ✅ 基本 React.memo 使用
+const ExpensiveChild = React.memo(({ name, age, hobbies }) => {
+  console.log('ExpensiveChild rendered');
+  
+  return (
+    <div>
+      <h3>{name} ({age} 歲)</h3>
+      <ul>
+        {hobbies.map(hobby => (
+          <li key={hobby}>{hobby}</li>
+        ))}
+      </ul>
+    </div>
+  );
+});
+
+function Parent() {
+  const [count, setCount] = useState(0);
+  const [user] = useState({
+    name: 'Alice',
+    age: 25,
+    hobbies: ['reading', 'swimming']
+  });
+
+  return (
+    <div>
+      {/* 這個按鈕不會導致 ExpensiveChild 重新渲染 */}
+      <button onClick={() => setCount(count + 1)}>
+        Count: {count}
+      </button>
+      
+      <ExpensiveChild 
+        name={user.name}
+        age={user.age}
+        hobbies={user.hobbies}
+      />
+    </div>
+  );
+}
+```
+
+**React.memo vs 普通組件對比：**
+```tsx
+// ❌ 普通組件：每次父組件更新都會重新渲染
+const RegularComponent = ({ data }) => {
+  console.log('RegularComponent rendered'); // 每次都會執行
+  return <div>{data.title}</div>;
+};
+
+// ✅ memo 包裝的組件：只在 props 改變時重新渲染  
+const MemoizedComponent = React.memo(({ data }) => {
+  console.log('MemoizedComponent rendered'); // 只在 data 改變時執行
+  return <div>{data.title}</div>;
+});
+
+function App() {
+  const [count, setCount] = useState(0);
+  const data = useMemo(() => ({ title: 'Hello' }), []); // 穩定的 data
+
+  return (
+    <div>
+      <button onClick={() => setCount(count + 1)}>Count: {count}</button>
+      <RegularComponent data={data} /> {/* 每次都重新渲染 */}
+      <MemoizedComponent data={data} /> {/* 不會重新渲染 */}
+    </div>
+  );
+}
+```
+</Tab>
+
+<Tab value="自訂比較">
+**自訂比較函數：**
+```tsx
+// ✅ 自訂比較邏輯
+const UserCard = React.memo(({ user, settings }) => {
+  return (
+    <div className={settings.theme}>
+      <img src={user.avatar} alt={user.name} />
+      <h3>{user.name}</h3>
+      <p>{user.email}</p>
+    </div>
+  );
+}, (prevProps, nextProps) => {
+  // 返回 true 表示 props 相等，不需要重新渲染
+  // 返回 false 表示 props 不相等，需要重新渲染
+  
+  // 只比較我們關心的 props
+  const userEqual = 
+    prevProps.user.id === nextProps.user.id &&
+    prevProps.user.name === nextProps.user.name &&
+    prevProps.user.email === nextProps.user.email &&
+    prevProps.user.avatar === nextProps.user.avatar;
+    
+  const settingsEqual = 
+    prevProps.settings.theme === nextProps.settings.theme;
+    
+  return userEqual && settingsEqual;
+});
+
+// 更複雜的比較邏輯
+const ProductList = React.memo(({ products, filters, onProductClick }) => {
+  // 渲染商品列表...
+}, (prevProps, nextProps) => {
+  // 深度比較商品陣列（只比較必要的字段）
+  if (prevProps.products.length !== nextProps.products.length) {
+    return false;
+  }
+  
+  const productsEqual = prevProps.products.every((prevProduct, index) => {
+    const nextProduct = nextProps.products[index];
+    return (
+      prevProduct.id === nextProduct.id &&
+      prevProduct.name === nextProduct.name &&
+      prevProduct.price === nextProduct.price
+    );
+  });
+  
+  // 比較過濾器
+  const filtersEqual = JSON.stringify(prevProps.filters) === JSON.stringify(nextProps.filters);
+  
+  // 函數比較（通常使用 useCallback 確保穩定性）
+  const functionsEqual = prevProps.onProductClick === nextProps.onProductClick;
+  
+  return productsEqual && filtersEqual && functionsEqual;
+});
+```
+
+**淺比較 vs 深比較：**
+```tsx
+// 展示不同比較策略的效果
+const ShallowCompare = React.memo(({ data }) => {
+  // 使用預設的淺比較
+  return <div>{data.title}</div>;
+});
+
+const DeepCompare = React.memo(({ data }) => {
+  // 自訂深度比較
+  return <div>{data.title}</div>;
+}, (prev, next) => {
+  return JSON.stringify(prev.data) === JSON.stringify(next.data);
+});
+
+const SmartCompare = React.memo(({ data }) => {
+  // 智能比較：只比較實際使用的屬性
+  return <div>{data.title}</div>;
+}, (prev, next) => {
+  return prev.data.title === next.data.title;
+});
+
+function TestComparison() {
+  const [count, setCount] = useState(0);
+  const [data, setData] = useState({ 
+    title: 'Hello', 
+    unused: Math.random() // 每次都不同，但不影響渲染
+  });
+
+  const updateData = () => {
+    setData(prev => ({
+      ...prev,
+      unused: Math.random() // 只改變不相關的屬性
+    }));
+  };
+
+  return (
+    <div>
+      <button onClick={() => setCount(count + 1)}>Count: {count}</button>
+      <button onClick={updateData}>Update Unused Data</button>
+      
+      <ShallowCompare data={data} /> {/* 會重新渲染 */}
+      <DeepCompare data={data} /> {/* 會重新渲染 */}
+      <SmartCompare data={data} /> {/* 不會重新渲染 */}
+    </div>
+  );
+}
+```
+</Tab>
+
+<Tab value="與 hooks 結合">
+**與 useCallback 和 useMemo 的完美結合：**
+```tsx
+// 完整的優化範例
+function TodoApp() {
+  const [todos, setTodos] = useState([]);
+  const [filter, setFilter] = useState('all');
+  const [newTodo, setNewTodo] = useState('');
+
+  // ✅ 使用 useCallback 確保函數穩定性
+  const addTodo = useCallback((text) => {
+    const newTodo = {
+      id: Date.now(),
+      text,
+      completed: false,
+      createdAt: new Date()
+    };
+    setTodos(prev => [...prev, newTodo]);
+  }, []);
+
+  const toggleTodo = useCallback((id) => {
+    setTodos(prev => 
+      prev.map(todo => 
+        todo.id === id ? { ...todo, completed: !todo.completed } : todo
+      )
+    );
+  }, []);
+
+  const deleteTodo = useCallback((id) => {
+    setTodos(prev => prev.filter(todo => todo.id !== id));
+  }, []);
+
+  // ✅ 使用 useMemo 避免重複過濾
+  const filteredTodos = useMemo(() => {
+    switch (filter) {
+      case 'active':
+        return todos.filter(todo => !todo.completed);
+      case 'completed':
+        return todos.filter(todo => todo.completed);
+      default:
+        return todos;
+    }
+  }, [todos, filter]);
+
+  // ✅ 使用 useMemo 計算統計信息
+  const stats = useMemo(() => ({
+    total: todos.length,
+    completed: todos.filter(t => t.completed).length,
+    active: todos.filter(t => !t.completed).length
+  }), [todos]);
+
+  const handleSubmit = useCallback((e) => {
+    e.preventDefault();
+    if (newTodo.trim()) {
+      addTodo(newTodo.trim());
+      setNewTodo('');
+    }
+  }, [newTodo, addTodo]);
+
+  return (
+    <div>
+      <form onSubmit={handleSubmit}>
+        <input
+          value={newTodo}
+          onChange={(e) => setNewTodo(e.target.value)}
+          placeholder="新增待辦事項..."
+        />
+        <button type="submit">添加</button>
+      </form>
+
+      <FilterButtons 
+        currentFilter={filter} 
+        onFilterChange={setFilter} 
+      />
+      
+      <TodoStats stats={stats} />
+      
+      <TodoList 
+        todos={filteredTodos}
+        onToggle={toggleTodo}
+        onDelete={deleteTodo}
+      />
+    </div>
+  );
+}
+
+// ✅ 優化的子組件們
+const FilterButtons = React.memo(({ currentFilter, onFilterChange }) => {
+  const filters = ['all', 'active', 'completed'];
+  
+  return (
+    <div>
+      {filters.map(filter => (
+        <button
+          key={filter}
+          className={currentFilter === filter ? 'active' : ''}
+          onClick={() => onFilterChange(filter)}
+        >
+          {filter}
+        </button>
+      ))}
+    </div>
+  );
+});
+
+const TodoStats = React.memo(({ stats }) => (
+  <div>
+    <span>總計: {stats.total}</span>
+    <span>已完成: {stats.completed}</span>
+    <span>待完成: {stats.active}</span>
+  </div>
+));
+
+const TodoList = React.memo(({ todos, onToggle, onDelete }) => (
+  <ul>
+    {todos.map(todo => (
+      <TodoItem
+        key={todo.id}
+        todo={todo}
+        onToggle={onToggle}
+        onDelete={onDelete}
+      />
+    ))}
+  </ul>
+));
+
+const TodoItem = React.memo(({ todo, onToggle, onDelete }) => (
+  <li>
+    <input
+      type="checkbox"
+      checked={todo.completed}
+      onChange={() => onToggle(todo.id)}
+    />
+    <span className={todo.completed ? 'completed' : ''}>
+      {todo.text}
+    </span>
+    <button onClick={() => onDelete(todo.id)}>刪除</button>
+  </li>
+));
+```
+</Tab>
+
+</Tabs>
+
+## 最佳實踐與常見陷阱
+
+<Files>
+  <Folder name="最佳實踐" defaultOpen>
+    <File name="when-to-optimize.md">何時需要優化</File>
+    <File name="measuring-performance.md">如何測量效能</File>
+    <File name="optimization-patterns.md">優化模式</File>
+  </Folder>
+  <Folder name="常見陷阱">
+    <File name="over-optimization.md">過度優化</File>
+    <File name="incorrect-dependencies.md">錯誤的依賴項</File>
+    <File name="memory-leaks.md">記憶體洩漏</File>
+  </Folder>
+</Files>
+
+### 優化決策樹
+
+<Steps>
+
+<Step>
+### 識別效能問題
+使用 React DevTools Profiler 找出實際的效能瓶頸
+</Step>
+
+<Step>
+### 分析根本原因
+確定是不必要的重新渲染還是昂貴的計算
+</Step>
+
+<Step>
+### 選擇合適的優化工具
+- useCallback：函數記憶化
+- useMemo：值記憶化
+- React.memo：組件記憶化
+</Step>
+
+<Step>
+### 測量優化效果
+確保優化確實改善了效能
+</Step>
+
+</Steps>
+
+### 何時使用各種優化技巧
+
+<Callout type="info">
+正確的時機比正確的方法更重要！
+</Callout>
+
+<Tabs items={["使用時機", "避免場景", "測量方法"]}>
+
+<Tab value="使用時機">
+**useCallback 適用場景：**
+```tsx
+// ✅ 1. 傳遞給 memo 包裝的子組件
+const MemoChild = React.memo(({ onClick }) => {
+  return <button onClick={onClick}>Click</button>;
+});
+
+function Parent() {
+  const handleClick = useCallback(() => {}, []); // 必要
+  return <MemoChild onClick={handleClick} />;
+}
+
+// ✅ 2. 作為 useEffect 等 hooks 的依賴
+function Component({ userId }) {
+  const fetchUser = useCallback(async () => {
+    // fetch logic
+  }, [userId]);
+  
+  useEffect(() => {
+    fetchUser();
+  }, [fetchUser]); // 必要
+}
+
+// ✅ 3. 在自訂 hook 中返回的函數
+function useApi(endpoint) {
+  const request = useCallback(async (data) => {
+    // API 請求邏輯
+  }, [endpoint]);
+  
+  return { request }; // 必要，確保返回的函數穩定
+}
+```
+
+**useMemo 適用場景：**
+```tsx
+// ✅ 1. 昂貴的計算
+const expensiveValue = useMemo(() => {
+  return data.reduce((acc, item) => {
+    // 複雜計算
+  }, 0);
+}, [data]);
+
+// ✅ 2. 創建複雜物件給子組件
+const config = useMemo(() => ({
+  theme: 'dark',
+  options: computeOptions(settings)
+}), [settings]);
+
+// ✅ 3. 過濾/排序大量數據
+const processedData = useMemo(() => {
+  return largeDataSet
+    .filter(item => item.active)
+    .sort((a, b) => a.priority - b.priority);
+}, [largeDataSet]);
+```
+
+**React.memo 適用場景：**
+```tsx
+// ✅ 1. 純展示組件
+const UserCard = React.memo(({ user }) => {
+  return <div>{user.name}</div>;
+});
+
+// ✅ 2. 列表項組件
+const ListItem = React.memo(({ item, onEdit, onDelete }) => {
+  return (
+    <div>
+      {item.name}
+      <button onClick={() => onEdit(item.id)}>編輯</button>
+      <button onClick={() => onDelete(item.id)}>刪除</button>
+    </div>
+  );
+});
+
+// ✅ 3. 複雜的子組件
+const ComplexChart = React.memo(({ data, config }) => {
+  // 複雜的圖表邏輯
+});
+```
+</Tab>
+
+<Tab value="避免場景">
+**❌ 不應該使用的場景：**
+
+```tsx
+// ❌ 1. 簡單的組件沒必要用 memo
+const SimpleComponent = React.memo(({ text }) => {
+  return <span>{text}</span>; // 渲染成本很低，memo 反而增加成本
+});
+
+// ❌ 2. props 經常改變的組件
+const FrequentlyChangingComponent = React.memo(({ timestamp, data }) => {
+  // timestamp 每秒都在變化，memo 沒有意義
+});
+
+// ❌ 3. 過度使用 useCallback/useMemo
+function OverOptimizedComponent() {
+  const [name, setName] = useState('');
+  
+  // ❌ 簡單的字符串處理不需要 useMemo
+  const upperName = useMemo(() => name.toUpperCase(), [name]);
+  
+  // ❌ 不會傳給子組件的簡單函數不需要 useCallback  
+  const handleChange = useCallback((e) => {
+    setName(e.target.value);
+  }, []);
+  
+  return <input value={name} onChange={handleChange} />;
+}
+
+// ❌ 4. 依賴項包含物件或陣列但沒有穩定引用
+function BadDependencies({ config }) {
+  // config 每次渲染都是新物件，useMemo 失效
+  const processedData = useMemo(() => {
+    return expensiveComputation(config);
+  }, [config]); // config 引用每次都變
+}
+
+// ✅ 正確做法：穩定化依賴或深度比較
+function GoodDependencies({ config }) {
+  const stableConfig = useMemo(() => config, [
+    config.theme, 
+    config.size, 
+    config.mode
+  ]); // 只依賴具體的值
+  
+  const processedData = useMemo(() => {
+    return expensiveComputation(stableConfig);
+  }, [stableConfig]);
+}
+```
+
+**記憶體洩漏風險：**
+```tsx
+// ❌ 可能導致記憶體洩漏
+function ComponentWithClosure({ onUpdate }) {
+  const [largeData, setLargeData] = useState(/* 大量數據 */);
+  
+  // ❌ 閉包捕獲了 largeData，即使不需要
+  const handleClick = useCallback(() => {
+    onUpdate('clicked');
+  }, [onUpdate]); // largeData 被閉包引用，無法被垃圾回收
+  
+  // ✅ 正確做法：避免不必要的閉包
+  const handleClickCorrect = useCallback(() => {
+    onUpdate('clicked');
+  }, [onUpdate]); // 不引用 largeData
+}
+```
+</Tab>
+
+<Tab value="測量方法">
+**效能測量工具與方法：**
+
+```tsx
+// 1. React DevTools Profiler
+// 開啟 Profiler 標籤，記錄組件渲染時間和次數
+
+// 2. 自訂效能測量
+function PerformanceMeasurement() {
+  const renderCountRef = useRef(0);
+  const lastRenderTime = useRef(Date.now());
+  
+  useEffect(() => {
+    renderCountRef.current += 1;
+    const now = Date.now();
+    console.log(`Render #${renderCountRef.current}, Time since last: ${now - lastRenderTime.current}ms`);
+    lastRenderTime.current = now;
+  });
+  
+  return <div>Performance Measurement Component</div>;
+}
+
+// 3. 自訂 hook 追蹤重新渲染原因
+function useWhyDidYouUpdate(name, props) {
+  const previous = useRef();
+  
+  useEffect(() => {
+    if (previous.current) {
+      const allKeys = Object.keys({ ...previous.current, ...props });
+      const changedProps = {};
+      
+      allKeys.forEach(key => {
+        if (previous.current[key] !== props[key]) {
+          changedProps[key] = {
+            from: previous.current[key],
+            to: props[key]
+          };
+        }
+      });
+      
+      if (Object.keys(changedProps).length) {
+        console.log('[why-did-you-update]', name, changedProps);
+      }
+    }
+    
+    previous.current = props;
+  });
+}
+
+// 使用方式
+function MyComponent(props) {
+  useWhyDidYouUpdate('MyComponent', props);
+  return <div>Component content</div>;
+}
+
+// 4. 測量函數執行時間
+function measurePerformance(fn, name) {
+  return (...args) => {
+    const start = performance.now();
+    const result = fn.apply(this, args);
+    const end = performance.now();
+    console.log(`${name} 執行時間: ${end - start} milliseconds`);
+    return result;
+  };
+}
+
+// 使用方式
+const expensiveFunction = measurePerformance((data) => {
+  // 複雜計算
+}, 'ExpensiveCalculation');
+
+// 5. 測量組件渲染次數
+let renderCount = 0;
+const CountRenders = (WrappedComponent) => {
+  return React.memo((props) => {
+    renderCount++;
+    console.log(`${WrappedComponent.name} 渲染次數: ${renderCount}`);
+    return <WrappedComponent {...props} />;
+  });
+};
+
+// 使用方式
+const OptimizedComponent = CountRenders(MyExpensiveComponent);
+```
+
+**A/B 測試效能優化：**
+```tsx
+// 創建對照組來測試優化效果
+function PerformanceComparison() {
+  const [useOptimization, setUseOptimization] = useState(false);
+  const [data, setData] = useState(generateLargeDataSet());
+  
+  // 未優化版本
+  const UnoptimizedComponent = ({ items }) => {
+    const processedItems = items.map(item => ({
+      ...item,
+      processed: expensiveCalculation(item)
+    }));
+    
+    return <ItemList items={processedItems} />;
+  };
+  
+  // 優化版本
+  const OptimizedComponent = ({ items }) => {
+    const processedItems = useMemo(() => 
+      items.map(item => ({
+        ...item,
+        processed: expensiveCalculation(item)
+      })), [items]
+    );
+    
+    return <ItemList items={processedItems} />;
+  };
+  
+  return (
+    <div>
+      <button onClick={() => setUseOptimization(!useOptimization)}>
+        切換到 {useOptimization ? '未優化' : '優化'} 版本
+      </button>
+      
+      {useOptimization ? (
+        <OptimizedComponent items={data} />
+      ) : (
+        <UnoptimizedComponent items={data} />
+      )}
+    </div>
+  );
+}
+```
+</Tab>
+
+</Tabs>
+
+## 實戰案例：完整的優化策略
+
+<Callout type="success">
+讓我們通過一個完整的實戰案例來看如何綜合運用所有優化技巧
+</Callout>
+
+### 大型數據表格組件優化
+
+```tsx
+// 完整的優化案例：可排序、可篩選的數據表格
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  age: number;
+  department: string;
+  salary: number;
+  active: boolean;
+}
+
+interface TableProps {
+  users: User[];
+  onUserEdit: (user: User) => void;
+  onUserDelete: (userId: string) => void;
+}
+
+// ✅ 主要的表格組件
+function UserTable({ users, onUserEdit, onUserDelete }: TableProps) {
+  const [sortField, setSortField] = useState<keyof User>('name');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [filters, setFilters] = useState({
+    name: '',
+    department: '',
+    active: null as boolean | null
+  });
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 50;
+
+  // ✅ 使用 useMemo 優化數據處理管道
+  const processedUsers = useMemo(() => {
+    console.log('重新處理用戶數據...'); // 監控執行頻率
+    
+    // 1. 過濾
+    let filtered = users.filter(user => {
+      if (filters.name && !user.name.toLowerCase().includes(filters.name.toLowerCase())) {
+        return false;
+      }
+      if (filters.department && user.department !== filters.department) {
+        return false;
+      }
+      if (filters.active !== null && user.active !== filters.active) {
+        return false;
+      }
+      return true;
+    });
+    
+    // 2. 排序
+    filtered.sort((a, b) => {
+      const aValue = a[sortField];
+      const bValue = b[sortField];
+      const direction = sortDirection === 'asc' ? 1 : -1;
+      
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return aValue.localeCompare(bValue) * direction;
+      }
+      
+      if (aValue < bValue) return -1 * direction;
+      if (aValue > bValue) return 1 * direction;
+      return 0;
+    });
+    
+    // 3. 分頁
+    const startIndex = (currentPage - 1) * pageSize;
+    const paginatedUsers = filtered.slice(startIndex, startIndex + pageSize);
+    
+    return {
+      users: paginatedUsers,
+      totalCount: filtered.length,
+      totalPages: Math.ceil(filtered.length / pageSize)
+    };
+  }, [users, sortField, sortDirection, filters, currentPage, pageSize]);
+
+  // ✅ 使用 useCallback 穩定化事件處理器
+  const handleSort = useCallback((field: keyof User) => {
+    if (field === sortField) {
+      setSortDirection(direction => direction === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+    setCurrentPage(1); // 排序後回到第一頁
+  }, [sortField]);
+
+  const handleFilterChange = useCallback((field: keyof typeof filters, value: any) => {
+    setFilters(prev => ({ ...prev, [field]: value }));
+    setCurrentPage(1); // 篩選後回到第一頁
+  }, []);
+
+  const handlePageChange = useCallback((page: number) => {
+    setCurrentPage(page);
+  }, []);
+
+  // ✅ 使用 useMemo 創建穩定的配置物件
+  const tableConfig = useMemo(() => ({
+    sortField,
+    sortDirection,
+    currentPage,
+    totalPages: processedUsers.totalPages
+  }), [sortField, sortDirection, currentPage, processedUsers.totalPages]);
+
+  const filterConfig = useMemo(() => ({
+    ...filters,
+    departments: [...new Set(users.map(u => u.department))]
+  }), [filters, users]);
+
+  return (
+    <div>
+      {/* 篩選區域 */}
+      <TableFilters 
+        config={filterConfig}
+        onChange={handleFilterChange}
+      />
+      
+      {/* 表格主體 */}
+      <Table 
+        users={processedUsers.users}
+        config={tableConfig}
+        onSort={handleSort}
+        onEdit={onUserEdit}
+        onDelete={onUserDelete}
+      />
+      
+      {/* 分頁組件 */}
+      <Pagination 
+        currentPage={currentPage}
+        totalPages={processedUsers.totalPages}
+        totalCount={processedUsers.totalCount}
+        onPageChange={handlePageChange}
+      />
+    </div>
+  );
+}
+
+// ✅ 優化的篩選組件
+const TableFilters = React.memo(({ config, onChange }) => {
+  return (
+    <div className="filters">
+      <input
+        placeholder="搜尋姓名..."
+        value={config.name}
+        onChange={(e) => onChange('name', e.target.value)}
+      />
+      
+      <select
+        value={config.department}
+        onChange={(e) => onChange('department', e.target.value)}
+      >
+        <option value="">所有部門</option>
+        {config.departments.map(dept => (
+          <option key={dept} value={dept}>{dept}</option>
+        ))}
+      </select>
+      
+      <select
+        value={config.active === null ? '' : config.active.toString()}
+        onChange={(e) => {
+          const value = e.target.value === '' ? null : e.target.value === 'true';
+          onChange('active', value);
+        }}
+      >
+        <option value="">所有狀態</option>
+        <option value="true">活躍</option>
+        <option value="false">非活躍</option>
+      </select>
+    </div>
+  );
+});
+
+// ✅ 優化的表格組件
+const Table = React.memo(({ users, config, onSort, onEdit, onDelete }) => {
+  const columns = [
+    { key: 'name', label: '姓名' },
+    { key: 'email', label: '郵箱' },
+    { key: 'age', label: '年齡' },
+    { key: 'department', label: '部門' },
+    { key: 'salary', label: '薪資' },
+    { key: 'active', label: '狀態' }
+  ];
+
+  return (
+    <table>
+      <thead>
+        <tr>
+          {columns.map(column => (
+            <SortableHeader
+              key={column.key}
+              field={column.key}
+              label={column.label}
+              sortField={config.sortField}
+              sortDirection={config.sortDirection}
+              onSort={onSort}
+            />
+          ))}
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {users.map(user => (
+          <UserRow
+            key={user.id}
+            user={user}
+            onEdit={onEdit}
+            onDelete={onDelete}
+          />
+        ))}
+      </tbody>
+    </table>
+  );
+});
+
+// ✅ 優化的表頭組件
+const SortableHeader = React.memo(({ field, label, sortField, sortDirection, onSort }) => {
+  const handleClick = useCallback(() => {
+    onSort(field);
+  }, [field, onSort]);
+
+  const isActive = sortField === field;
+  const icon = isActive ? (sortDirection === 'asc' ? '↑' : '↓') : '';
+
+  return (
+    <th onClick={handleClick} className={isActive ? 'active' : ''}>
+      {label} {icon}
+    </th>
+  );
+});
+
+// ✅ 優化的行組件
+const UserRow = React.memo(({ user, onEdit, onDelete }) => {
+  const handleEdit = useCallback(() => {
+    onEdit(user);
+  }, [user, onEdit]);
+
+  const handleDelete = useCallback(() => {
+    onDelete(user.id);
+  }, [user.id, onDelete]);
+
+  return (
+    <tr>
+      <td>{user.name}</td>
+      <td>{user.email}</td>
+      <td>{user.age}</td>
+      <td>{user.department}</td>
+      <td>{user.salary.toLocaleString()}</td>
+      <td>{user.active ? '活躍' : '非活躍'}</td>
+      <td>
+        <button onClick={handleEdit}>編輯</button>
+        <button onClick={handleDelete}>刪除</button>
+      </td>
+    </tr>
+  );
+});
+
+// ✅ 優化的分頁組件
+const Pagination = React.memo(({ currentPage, totalPages, totalCount, onPageChange }) => {
+  const handlePrevious = useCallback(() => {
+    if (currentPage > 1) {
+      onPageChange(currentPage - 1);
+    }
+  }, [currentPage, onPageChange]);
+
+  const handleNext = useCallback(() => {
+    if (currentPage < totalPages) {
+      onPageChange(currentPage + 1);
+    }
+  }, [currentPage, totalPages, onPageChange]);
+
+  const handlePageClick = useCallback((page: number) => {
+    onPageChange(page);
+  }, [onPageChange]);
+
+  return (
+    <div className="pagination">
+      <button onClick={handlePrevious} disabled={currentPage === 1}>
+        上一頁
+      </button>
+      
+      {/* 頁碼按鈕 */}
+      {Array.from({ length: totalPages }, (_, i) => i + 1)
+        .filter(page => {
+          // 只顯示當前頁附近的頁碼
+          return Math.abs(page - currentPage) <= 2 || page === 1 || page === totalPages;
+        })
+        .map(page => (
+          <PageButton
+            key={page}
+            page={page}
+            isActive={page === currentPage}
+            onClick={handlePageClick}
+          />
+        ))}
+      
+      <button onClick={handleNext} disabled={currentPage === totalPages}>
+        下一頁
+      </button>
+      
+      <span>共 {totalCount} 條記錄</span>
+    </div>
+  );
+});
+
+const PageButton = React.memo(({ page, isActive, onClick }) => {
+  const handleClick = useCallback(() => {
+    onClick(page);
+  }, [page, onClick]);
+
+  return (
+    <button
+      onClick={handleClick}
+      className={isActive ? 'active' : ''}
+    >
+      {page}
+    </button>
+  );
+});
+```
+
+### 優化效果分析
+
+<Callout type="success">
+通過這個完整案例，我們實現了以下優化效果
+</Callout>
+
+**1. 減少不必要的計算**
+- 數據處理只在相關依賴改變時執行
+- 排序和篩選結果被快取
+
+**2. 避免子組件重新渲染**
+- 所有子組件都用 React.memo 包裝
+- 事件處理器使用 useCallback 穩定化
+
+**3. 優化記憶體使用**
+- 分頁減少 DOM 節點數量
+- 避免大量數據同時渲染
+
+**4. 提升用戶體驗**
+- 篩選和排序響應迅速
+- 分頁切換流暢
+
+## 總結與建議
+
+<Callout type="info">
+優化是藝術，不是科學。重要的是在正確的時間使用正確的工具
+</Callout>
+
+### 優化原則
+
+1. **測量優先**：先找出真正的效能瓶頸
+2. **漸進式優化**：從影響最大的地方開始
+3. **保持可讀性**：不要為了優化犧牲代碼清晰度
+4. **持續監控**：優化是持續的過程
+
+### 最佳實踐總結
+
+- **useCallback**：用於穩定化傳給子組件的函數
+- **useMemo**：用於快取昂貴的計算結果
+- **React.memo**：用於避免純展示組件的重新渲染
+- **組合使用**：三者配合使用效果最佳
+
+### 避免的陷阱
+
+- 過度優化簡單組件
+- 忘記正確的依賴項
+- 不測量優化效果
+- 犧牲代碼可讀性
+
+記住，優化的目標是提升用戶體驗，而不是炫技。在適當的時候使用適當的工具，並始終以用戶體驗為導向進行決策。

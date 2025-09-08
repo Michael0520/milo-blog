@@ -1,0 +1,457 @@
+---
+title: Grid Template：最直覺的 CMS Layout 解決方案
+description: 使用 Grid Template Areas 打造直覺且易維護的 CMS 版面配置
+icon: Grid3x3
+---
+
+import { Tabs, Tab } from 'fumadocs-ui/components/tabs';
+import { Steps, Step } from 'fumadocs-ui/components/steps';
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Files, File, Folder } from 'fumadocs-ui/components/files';
+
+> 使用 CSS Grid Template Areas 創建直觀的 CMS 布局系統
+
+當我們在設計複雜的 CMS 系統時，經常遇到版面配置的挑戰。傳統的 flexbox 或 float 方式雖然能實現功能，但在維護性和直觀性上總是差強人意。今天要介紹的 **Grid Template Areas** 提供了一個更優雅的解決方案。
+
+## 為什麼選擇 Grid Template Areas？
+
+<Callout type="info">
+Grid Template Areas 讓你能用視覺化的方式定義布局，就像畫草圖一樣直觀！
+</Callout>
+
+<Steps>
+
+<Step>
+### 視覺化布局定義
+直接在 CSS 中"畫出"你的版面配置，一目了然
+</Step>
+
+<Step>
+### 具名區域管理
+每個區域都有明確的名稱，避免複雜的選擇器
+</Step>
+
+<Step>
+### 響應式設計友好
+輕鬆調整不同螢幕尺寸的布局
+</Step>
+
+<Step>
+### 高可維護性
+修改布局時只需調整 template 定義，不需要動到 HTML 結構
+</Step>
+
+</Steps>
+
+## 視覺化布局結構
+
+典型的後台管理系統布局通常包含以下區域：
+
+```
+┌─────────────────────────────────────────┐
+│                Header                   │
+├───────────┬─────────────────────────────┤
+│           │                             │
+│  Sidebar  │         Main Content        │
+│           │                             │
+├───────────┼─────────────────────────────┤
+│           │                             │
+│  Sidebar  │         Footer              │
+│           │                             │
+└───────────┴─────────────────────────────┘
+```
+
+## 實作指南
+
+<Tabs items={["HTML Structure", "CSS Grid", "Complete Example"]}>
+
+<Tab value="HTML Structure">
+```html
+<div class="grid-container">
+  <header class="header">Header</header>
+  <aside class="sidebar-left">Left Sidebar</aside>
+  <main class="main-content">Main Content</main>
+  <aside class="sidebar-right">Right Sidebar</aside>
+  <footer class="footer">Footer</footer>
+</div>
+```
+</Tab>
+
+<Tab value="CSS Grid">
+```css
+.grid-container {
+  display: grid;
+  grid-template-areas: 
+    "header header header"
+    "sidebar-left main-content sidebar-right"
+    "footer footer footer";
+  grid-template-columns: 200px 1fr 200px;
+  grid-template-rows: 60px 1fr 100px;
+  min-height: 100vh;
+  gap: 16px;
+}
+
+.header { grid-area: header; }
+.sidebar-left { grid-area: sidebar-left; }
+.main-content { grid-area: main-content; }
+.sidebar-right { grid-area: sidebar-right; }
+.footer { grid-area: footer; }
+```
+</Tab>
+
+<Tab value="Complete Example">
+```html
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSS Grid Template Areas CMS Layout</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-areas: 
+                "header header header"
+                "sidebar-left main-content sidebar-right"
+                "footer footer footer";
+            grid-template-columns: 200px 1fr 200px;
+            grid-template-rows: 60px 1fr 100px;
+            min-height: 100vh;
+            gap: 16px;
+            padding: 16px;
+        }
+
+        .header {
+            grid-area: header;
+            background-color: #2563eb;
+            color: white;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+        }
+
+        .sidebar-left {
+            grid-area: sidebar-left;
+            background-color: #f1f5f9;
+            padding: 20px;
+        }
+
+        .main-content {
+            grid-area: main-content;
+            background-color: white;
+            padding: 20px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .sidebar-right {
+            grid-area: sidebar-right;
+            background-color: #f8fafc;
+            padding: 20px;
+        }
+
+        .footer {
+            grid-area: footer;
+            background-color: #64748b;
+            color: white;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="grid-container">
+        <header class="header">
+            <h1>CMS Dashboard</h1>
+        </header>
+        <aside class="sidebar-left">
+            <nav>
+                <h3>Navigation</h3>
+                <ul>
+                    <li>Dashboard</li>
+                    <li>Posts</li>
+                    <li>Users</li>
+                    <li>Settings</li>
+                </ul>
+            </nav>
+        </aside>
+        <main class="main-content">
+            <h2>Main Content Area</h2>
+            <p>This is where your main content goes...</p>
+        </main>
+        <aside class="sidebar-right">
+            <h3>Quick Stats</h3>
+            <div>Total Users: 1,234</div>
+            <div>Active Sessions: 89</div>
+        </aside>
+        <footer class="footer">
+            <p>&copy; 2025 CMS System</p>
+        </footer>
+    </div>
+</body>
+</html>
+```
+</Tab>
+
+</Tabs>
+
+## Grid 尺寸設定詳解
+
+<Callout type="warn">
+理解不同的尺寸單位是創建完美布局的關鍵！
+</Callout>
+
+### 尺寸單位說明
+
+<Tabs items={["Fixed Size", "Flexible Size", "Auto Size"]}>
+
+<Tab value="Fixed Size">
+```css
+/* 固定尺寸 (px) - 適合需要精確控制的區域 */
+.grid-container {
+  grid-template-columns: 200px 1fr 200px;
+  grid-template-rows: 60px 1fr 100px;
+}
+```
+
+**適用場景：**
+- Header 高度固定
+- Sidebar 寬度固定
+- Footer 高度固定
+</Tab>
+
+<Tab value="Flexible Size">
+```css
+/* 彈性尺寸 (fr) - 自動分配剩餘空間 */
+.grid-container {
+  grid-template-columns: 1fr 2fr 1fr;
+  grid-template-rows: auto 1fr auto;
+}
+```
+
+**適用場景：**
+- Main content 區域自適應
+- 響應式設計
+- 不確定內容大小的區域
+</Tab>
+
+<Tab value="Auto Size">
+```css
+/* 自動尺寸 (auto) - 根據內容調整 */
+.grid-container {
+  grid-template-columns: auto 1fr auto;
+  grid-template-rows: auto 1fr auto;
+}
+```
+
+**適用場景：**
+- 內容驅動的區域大小
+- 動態導航選單
+- 可變長度的文字內容
+</Tab>
+
+</Tabs>
+
+## 響應式設計實現
+
+<Steps>
+
+<Step>
+### 桌面版本 (Desktop)
+```css
+@media (min-width: 1024px) {
+  .grid-container {
+    grid-template-areas: 
+      "header header header"
+      "sidebar-left main-content sidebar-right"
+      "footer footer footer";
+    grid-template-columns: 200px 1fr 200px;
+  }
+}
+```
+</Step>
+
+<Step>
+### 平板版本 (Tablet)
+```css
+@media (max-width: 1023px) and (min-width: 768px) {
+  .grid-container {
+    grid-template-areas: 
+      "header header"
+      "sidebar-left main-content"
+      "footer footer";
+    grid-template-columns: 180px 1fr;
+  }
+  
+  .sidebar-right { display: none; }
+}
+```
+</Step>
+
+<Step>
+### 手機版本 (Mobile)
+```css
+@media (max-width: 767px) {
+  .grid-container {
+    grid-template-areas: 
+      "header"
+      "main-content"
+      "sidebar-left"
+      "footer";
+    grid-template-columns: 1fr;
+  }
+  
+  .sidebar-right { display: none; }
+}
+```
+</Step>
+
+</Steps>
+
+## Tailwind CSS 實現
+
+<Callout type="info">
+如果你偏愛 Tailwind CSS，這裡提供對應的實現方式
+</Callout>
+
+<Tabs items={["Grid Setup", "Responsive Classes", "Custom Config"]}>
+
+<Tab value="Grid Setup">
+```html
+<div class="grid min-h-screen gap-4 p-4"
+     style="grid-template-areas: 
+            'header header header'
+            'sidebar-left main-content sidebar-right'
+            'footer footer footer';
+            grid-template-columns: 200px 1fr 200px;
+            grid-template-rows: 60px 1fr 100px;">
+            
+  <header class="bg-blue-600 text-white flex items-center px-5"
+          style="grid-area: header;">
+    <h1>CMS Dashboard</h1>
+  </header>
+  
+  <aside class="bg-slate-100 p-5"
+         style="grid-area: sidebar-left;">
+    <nav>Navigation</nav>
+  </aside>
+  
+  <main class="bg-white p-5 border border-slate-200"
+        style="grid-area: main-content;">
+    <h2>Main Content</h2>
+  </main>
+  
+  <aside class="bg-slate-50 p-5"
+         style="grid-area: sidebar-right;">
+    <h3>Quick Stats</h3>
+  </aside>
+  
+  <footer class="bg-slate-600 text-white flex items-center px-5"
+          style="grid-area: footer;">
+    <p>&copy; 2025 CMS System</p>
+  </footer>
+</div>
+```
+</Tab>
+
+<Tab value="Responsive Classes">
+```html
+<div class="grid min-h-screen gap-4 p-4 
+            lg:grid-cols-[200px_1fr_200px] 
+            lg:grid-rows-[60px_1fr_100px]
+            md:grid-cols-[180px_1fr] 
+            md:grid-rows-[60px_1fr_100px]
+            grid-cols-1 
+            grid-rows-[60px_1fr_auto_100px]">
+  <!-- Grid items with responsive grid-area styles -->
+</div>
+```
+</Tab>
+
+<Tab value="Custom Config">
+```javascript
+// tailwind.config.js
+module.exports = {
+  theme: {
+    extend: {
+      gridTemplateAreas: {
+        'layout': [
+          'header header header',
+          'sidebar main sidebar-right',
+          'footer footer footer'
+        ],
+        'layout-tablet': [
+          'header header',
+          'sidebar main',
+          'footer footer'
+        ],
+        'layout-mobile': [
+          'header',
+          'main',
+          'sidebar',
+          'footer'
+        ]
+      }
+    }
+  },
+  plugins: [
+    require('@savvywombat/tailwindcss-grid-areas')
+  ]
+}
+```
+</Tab>
+
+</Tabs>
+
+## 實際應用案例
+
+### 1. 後台管理系統
+
+<Files>
+  <Folder name="admin-dashboard" defaultOpen>
+    <File name="layout.css">Grid Template 布局定義</File>
+    <File name="responsive.css">響應式媒體查詢</File>
+    <File name="components.css">組件樣式</File>
+  </Folder>
+  <Folder name="pages">
+    <File name="dashboard.html">儀表板頁面</File>
+    <File name="users.html">用戶管理</File>
+    <File name="settings.html">系統設定</File>
+  </Folder>
+</Files>
+
+### 2. 內容管理平台
+
+適用於：
+- WordPress 後台
+- 自訂 CMS 系統
+- 內容編輯界面
+
+### 3. 電商產品頁面
+
+適用於：
+- 產品詳情頁面
+- 購物車界面
+- 訂單管理系統
+
+## 結論
+
+<Callout type="success">
+Grid Template Areas 為複雜的 CMS 布局提供了完美解決方案
+</Callout>
+
+Grid Template Areas 的優勢總結：
+
+1. **視覺化定義**：CSS 代碼即是布局草圖
+2. **語義化命名**：區域名稱清晰易懂
+3. **響應式友好**：輕鬆適配各種螢幕尺寸
+4. **維護性佳**：結構調整不影響 HTML
+5. **學習曲線平緩**：直觀易懂的語法
+
+對於需要處理複雜版面配置的 CMS 系統來說，Grid Template Areas 絕對是值得投資學習的技術。它不僅能提升開發效率，更能讓代碼更具可讀性和可維護性。
