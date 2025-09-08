@@ -16,6 +16,7 @@ export default defineConfig({
       projects: ['./tsconfig.json'],
     }),
     tanstackStart({
+      target: 'vercel',
       prerender: {
         enabled: true,
       },

@@ -29,6 +29,7 @@
     "@vitejs/plugin-react": "^5.0.2",
     "tailwindcss": "^4.1.12",
     "typescript": "^5.9.2",
+    "vercel": "^47.0.5",
     "vite-tsconfig-paths": "^5.1.4"
   }
 }
