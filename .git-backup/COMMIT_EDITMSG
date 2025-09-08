@@ -1,0 +1,7 @@
+feat: migrate from TanStack Start to Next.js Fumadocs
+
+- Remove TanStack Start legacy files and directories
+- Add Next.js configuration and application structure
+- Preserve all blog articles in content/ directory
+- Update project dependencies and configurations
+- Maintain git history and blog content integrity

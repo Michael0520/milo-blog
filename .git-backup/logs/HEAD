@@ -1,0 +1,12 @@
+0000000000000000000000000000000000000000 62389020c6f09886c0d13ef9a344fe30b80ab27a MichaelTM Lo <michaeltm.lo@moxa.com> 1757263738 +0800	commit (initial): Initial commit from Create Fumadocs App
+62389020c6f09886c0d13ef9a344fe30b80ab27a b410add447ded0d3d57acfca94085ab5254b21ba MichaelTM Lo <michaeltm.lo@moxa.com> 1757264921 +0800	commit: Add CLAUDE.md and hello-world blog post
+b410add447ded0d3d57acfca94085ab5254b21ba db73eb5544636f56c6bbe38bef67bd356a2ace71 Michael0520 <michael860520@gmail.com> 1757265061 +0800	commit (amend): Add CLAUDE.md and hello-world blog post
+db73eb5544636f56c6bbe38bef67bd356a2ace71 e2ccde60ac418e717f00cbfe272e033ced622c57 Michael0520 <michael860520@gmail.com> 1757269826 +0800	commit: feat(backend): complete backend articles migration with enhanced components
+e2ccde60ac418e717f00cbfe272e033ced622c57 d9e8960cf8dd936ec15114ca1c01b25d817a37d1 Michael0520 <michael860520@gmail.com> 1757271576 +0800	commit: fix: remove unused @ts-expect-error directive in source.ts
+d9e8960cf8dd936ec15114ca1c01b25d817a37d1 77d90980d41430cf68db2491e6968bace9d8c69d Michael0520 <michael860520@gmail.com> 1757271776 +0800	commit: config: add Vercel deployment configuration
+77d90980d41430cf68db2491e6968bace9d8c69d 3b65df4e197ac88988bc40df845a7c14f5755c8a Michael0520 <michael860520@gmail.com> 1757320142 +0800	commit: feat: configure static site generation (SSG)
+3b65df4e197ac88988bc40df845a7c14f5755c8a 15575709ed317dbd60faf50c1d81ff106d926048 Michael0520 <michael860520@gmail.com> 1757320576 +0800	commit: fix: configure Vercel SSR deployment for TanStack Start
+15575709ed317dbd60faf50c1d81ff106d926048 1f7a8750a46e8fc17c8e2e13efccb55aae4f0ee8 Michael0520 <michael860520@gmail.com> 1757321885 +0800	commit: fix: simplify Vercel deployment configuration
+1f7a8750a46e8fc17c8e2e13efccb55aae4f0ee8 5906aa9ec9fefd0ac9ac833e2eae119e68fcbdc0 Michael0520 <michael860520@gmail.com> 1757323145 +0800	commit: fix: configure TanStack Start for Vercel deployment with target vercel
+5906aa9ec9fefd0ac9ac833e2eae119e68fcbdc0 fd637723461c1d9ca8b612909e5eb6cf63af86bf Michael0520 <michael860520@gmail.com> 1757323382 +0800	commit: fix: add Vercel Build Output API v3 config.json
+fd637723461c1d9ca8b612909e5eb6cf63af86bf 699a23858b08064629de96bc0010d7079d458d18 Michael0520 <michael860520@gmail.com> 1757323991 +0800	commit: feat: migrate from TanStack Start to Next.js Fumadocs
