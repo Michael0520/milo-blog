@@ -1,0 +1,643 @@
+---
+title: 網頁的效能指標及優化
+description: 深入了解 Core Web Vitals 及網頁效能優化策略
+icon: Zap
+---
+
+import { Tabs, Tab } from 'fumadocs-ui/components/tabs';
+import { Steps, Step } from 'fumadocs-ui/components/steps';
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Files, File, Folder } from 'fumadocs-ui/components/files';
+
+> 知道網頁有哪些效能指標嗎？深入理解 Core Web Vitals 和優化策略
+
+常常聽到網頁開發撰寫功能時，需要顧及效能及優化網頁效率等用詞，但我們真的知道如何去改善這些指標嗎？更進一步的說我們知道指標到底有那些嗎？這些指標又各自代表著甚麼意義，需要我們如何調校呢？接下來我們一一的介紹並分析這些指標吧～
+
+## 效能對使用者來說？
+
+<Callout type="info">
+對使用者來說，網站的優劣評估很直觀：載入速度、使用流暢度、功能正常性、頁面穩定性
+</Callout>
+
+對使用者來說，網站的優劣，其實也不難分辨，就是網站載入的速度，使用上的流程體感是否順暢，頁面功能都能正常使用，畫面不會有跑版的情況發生，就已經足夠了。但這些簡單的評估方法，也就包含了許多的效能指標～
+
+## Core Web Vitals 核心指標
+
+<Steps>
+
+<Step>
+### First Contentful Paint (FCP)
+首次內容繪製時間
+</Step>
+
+<Step>
+### Largest Contentful Paint (LCP)
+最大內容繪製時間
+</Step>
+
+<Step>
+### First Input Delay (FID)
+首次輸入延遲
+</Step>
+
+<Step>
+### Cumulative Layout Shift (CLS)
+累積版面位移
+</Step>
+
+</Steps>
+
+## 詳細指標分析
+
+### First Contentful Paint (FCP)
+
+<Callout type="warn">
+首次內容繪製 (FCP) 指標測量頁面從開始載入到頁面內容的任何部分在螢幕上完成渲染的時間
+</Callout>
+
+<Tabs items={["概念說明", "目標值", "優化策略"]}>
+
+<Tab value="概念說明">
+**FCP 測量什麼？**
+- 首次內容繪製時間
+- 包含文本、圖片、canvas 等任何部分的內容
+- **注意：並非所有內容都需要載入完成**
+
+**為什麼重要？**
+- 用戶第一眼看到內容的時間
+- 影響用戶對網站速度的第一印象
+- 是 Core Web Vitals 的重要組成部分
+
+```javascript
+// 測量 FCP
+new PerformanceObserver((entryList) => {
+  for (const entry of entryList.getEntries()) {
+    if (entry.name === 'first-contentful-paint') {
+      console.log('FCP:', entry.startTime);
+    }
+  }
+}).observe({ entryTypes: ['paint'] });
+```
+</Tab>
+
+<Tab value="目標值">
+**FCP 評分標準：**
+
+| 評級 | 時間範圍 | 顏色指示 |
+|------|----------|----------|
+| 良好 | 0-1.8 秒 | 🟢 綠色 |
+| 需要改進 | 1.8-3.0 秒 | 🟡 黃色 |
+| 不佳 | > 3.0 秒 | 🔴 紅色 |
+
+**最佳實踐：**
+- 目標：< 1.8 秒
+- 理想：< 1.0 秒
+- 關注 75th percentile 的用戶體驗
+</Tab>
+
+<Tab value="優化策略">
+**主要優化方法：**
+
+1. **消除阻塞渲染的資源**
+```html
+<!-- 避免：阻塞渲染的 CSS -->
+<link rel="stylesheet" href="styles.css">
+
+<!-- 推薦：異步載入非關鍵 CSS -->
+<link rel="preload" href="critical.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<link rel="stylesheet" href="non-critical.css" media="print" onload="this.media='all'">
+```
+
+2. **壓縮 CSS**
+```css
+/* 壓縮前 */
+.header {
+    background-color: #ffffff;
+    padding: 20px;
+    margin: 10px;
+}
+
+/* 壓縮後 */
+.header{background-color:#fff;padding:20px;margin:10px}
+```
+
+3. **移除未使用的 CSS**
+```javascript
+// 使用工具檢測未使用的 CSS
+// PurgeCSS, UnCSS, Chrome DevTools Coverage
+```
+
+4. **控制 DOM 大小**
+```html
+<!-- 避免過深的嵌套 -->
+<div><div><div><div><span>Content</span></div></div></div></div>
+
+<!-- 推薦：扁平化結構 -->
+<section class="content">Content</section>
+```
+</Tab>
+
+</Tabs>
+
+### Largest Contentful Paint (LCP)
+
+<Callout type="info">
+最大內容繪製 (LCP) 測量頁面主要內容載入完成的時間，是用戶體驗的關鍵指標
+</Callout>
+
+<Tabs items={["概念說明", "目標值", "優化策略"]}>
+
+<Tab value="概念說明">
+**LCP 測量什麼？**
+- 視窗中最大的內容元素渲染時間
+- 通常是：
+  - `<img>` 元素
+  - `<video>` 元素  
+  - 帶有背景圖片的元素
+  - 包含文本的區塊級元素
+
+**為什麼重要？**
+- 反映頁面主要內容的載入速度
+- 直接影響 SEO 排名
+- Core Web Vitals 三大核心指標之一
+
+```javascript
+// 測量 LCP
+new PerformanceObserver((entryList) => {
+  const entries = entryList.getEntries();
+  const lastEntry = entries[entries.length - 1];
+  console.log('LCP:', lastEntry.startTime);
+}).observe({ entryTypes: ['largest-contentful-paint'] });
+```
+</Tab>
+
+<Tab value="目標值">
+**LCP 評分標準：**
+
+| 評級 | 時間範圍 | 用戶體驗 |
+|------|----------|----------|
+| 良好 | < 2.5 秒 | 🟢 優秀 |
+| 需要改進 | 2.5-4.0 秒 | 🟡 普通 |
+| 不佳 | > 4.0 秒 | 🔴 差 |
+
+**Google 建議：**
+- 75% 的頁面訪問應該在 2.5 秒內完成 LCP
+- 移動設備上的要求更為嚴格
+</Tab>
+
+<Tab value="優化策略">
+**主要優化方法：**
+
+1. **優化關鍵渲染路徑**
+```html
+<!-- 預載入關鍵資源 -->
+<link rel="preload" href="hero-image.jpg" as="image">
+<link rel="preload" href="critical-font.woff2" as="font" type="font/woff2" crossorigin>
+```
+
+2. **優化圖片**
+```html
+<!-- 響應式圖片 -->
+<picture>
+  <source media="(min-width: 800px)" srcset="large-image.webp" type="image/webp">
+  <source media="(min-width: 800px)" srcset="large-image.jpg">
+  <source srcset="small-image.webp" type="image/webp">
+  <img src="small-image.jpg" alt="Description" loading="lazy">
+</picture>
+```
+
+3. **減少 JavaScript 複雜度**
+```javascript
+// 避免：複雜的同步操作
+function heavyComputation() {
+  for (let i = 0; i < 1000000; i++) {
+    // Heavy work
+  }
+}
+
+// 推薦：使用 Web Workers 或分批處理
+function lightComputation() {
+  return new Promise(resolve => {
+    setTimeout(() => {
+      // Light work
+      resolve();
+    }, 0);
+  });
+}
+```
+
+4. **伺服器端優化**
+```javascript
+// 使用 CDN 和快取
+app.use(express.static('public', {
+  maxAge: '1y',
+  etag: false
+}));
+
+// 啟用 Gzip 壓縮
+app.use(compression());
+```
+</Tab>
+
+</Tabs>
+
+### First Input Delay (FID)
+
+<Callout type="warn">
+首次輸入延遲 (FID) 測量用戶首次互動到瀏覽器回應的時間，直接影響用戶體驗
+</Callout>
+
+<Tabs items={["概念說明", "目標值", "優化策略"]}>
+
+<Tab value="概念說明">
+**FID 測量什麼？**
+- 用戶首次點擊、輕觸或按鍵的回應時間
+- 從事件發生到事件處理器開始執行的時間
+- 不包括事件處理器的執行時間
+
+**常見互動事件：**
+- 點擊連結
+- 點擊按鈕
+- 輸入文字
+- 下拉選單操作
+
+```javascript
+// 測量 FID
+new PerformanceObserver((entryList) => {
+  for (const entry of entryList.getEntries()) {
+    console.log('FID:', entry.processingStart - entry.startTime);
+  }
+}).observe({ entryTypes: ['first-input'] });
+```
+</Tab>
+
+<Tab value="目標值">
+**FID 評分標準：**
+
+| 評級 | 時間範圍 | 用戶感受 |
+|------|----------|----------|
+| 良好 | < 100ms | 立即回應 |
+| 需要改進 | 100-300ms | 稍有延遲 |
+| 不佳 | > 300ms | 明顯卡頓 |
+
+**實際影響：**
+- < 100ms：用戶感覺即時回應
+- 100-300ms：用戶開始感受到延遲
+- > 300ms：用戶明顯感到挫折
+</Tab>
+
+<Tab value="優化策略">
+**主要優化方法：**
+
+1. **減少第三方代碼影響**
+```javascript
+// 延遲載入非關鍵的第三方腳本
+function loadThirdParty() {
+  if ('requestIdleCallback' in window) {
+    requestIdleCallback(() => {
+      const script = document.createElement('script');
+      script.src = 'third-party-script.js';
+      document.body.appendChild(script);
+    });
+  }
+}
+```
+
+2. **最小化 JavaScript 執行時間**
+```javascript
+// 避免：長時間執行的任務
+function processLargeData(data) {
+  return data.map(item => heavyProcessing(item));
+}
+
+// 推薦：分批處理
+function processLargeDataChunked(data, chunkSize = 100) {
+  return new Promise((resolve) => {
+    const result = [];
+    let index = 0;
+    
+    function processChunk() {
+      const chunk = data.slice(index, index + chunkSize);
+      result.push(...chunk.map(item => heavyProcessing(item)));
+      index += chunkSize;
+      
+      if (index < data.length) {
+        setTimeout(processChunk, 0);
+      } else {
+        resolve(result);
+      }
+    }
+    
+    processChunk();
+  });
+}
+```
+
+3. **減少主執行緒工作**
+```javascript
+// 使用 Web Workers 處理複雜運算
+const worker = new Worker('heavy-computation.js');
+worker.postMessage(largeDataSet);
+worker.onmessage = function(e) {
+  console.log('Result:', e.data);
+};
+```
+
+4. **優化事件處理**
+```javascript
+// 避免：複雜的事件處理器
+button.addEventListener('click', function() {
+  performComplexOperation();
+  updateUI();
+  sendAnalytics();
+});
+
+// 推薦：異步處理
+button.addEventListener('click', function() {
+  // 立即回應用戶
+  button.classList.add('clicked');
+  
+  // 異步處理複雜操作
+  setTimeout(() => {
+    performComplexOperation();
+    updateUI();
+    sendAnalytics();
+  }, 0);
+});
+```
+</Tab>
+
+</Tabs>
+
+### Time to Interactive (TTI)
+
+<Callout type="info">
+互動時間 (TTI) 測量頁面完全可互動的時間點，是完整用戶體驗的重要指標
+</Callout>
+
+**TTI 評分標準：**
+- 良好：< 5 秒
+- 需要改進：5-9 秒  
+- 不佳：> 9 秒
+
+**優化策略：**
+- 減少關鍵資源的請求數量和大小
+- 最小化第三方代碼
+- 預載入關鍵資源
+
+### Total Blocking Time (TBT)
+
+<Callout type="warn">
+總阻塞時間 (TBT) 測量主執行緒被阻塞的總時間，影響頁面回應性
+</Callout>
+
+**TBT 評分標準：**
+- 良好：< 300ms
+- 需要改進：300-600ms
+- 不佳：> 600ms
+
+**優化策略類似 TTI：**
+- 代碼分割和懶載入
+- 移除未使用的 JavaScript
+- 使用 Web Workers
+
+### Cumulative Layout Shift (CLS)
+
+<Callout type="error">
+累積版面位移 (CLS) 測量頁面載入過程中元素意外移動的程度，影響視覺穩定性
+</Callout>
+
+<Tabs items={["概念說明", "目標值", "優化策略"]}>
+
+<Tab value="概念說明">
+**CLS 測量什麼？**
+- 頁面載入過程中元素的意外移動
+- 計算影響區域和移動距離
+- 只計算意外移動，用戶觸發的不算
+
+**常見原因：**
+- 沒有尺寸屬性的圖片
+- 動態插入的內容
+- 網絡字體載入導致的文字重排
+
+```javascript
+// 測量 CLS
+let clsValue = 0;
+new PerformanceObserver((entryList) => {
+  for (const entry of entryList.getEntries()) {
+    if (!entry.hadRecentInput) {
+      clsValue += entry.value;
+      console.log('CLS:', clsValue);
+    }
+  }
+}).observe({ entryTypes: ['layout-shift'] });
+```
+</Tab>
+
+<Tab value="目標值">
+**CLS 評分標準：**
+
+| 評級 | 數值範圍 | 用戶體驗 |
+|------|----------|----------|
+| 良好 | < 0.1 | 穩定 |
+| 需要改進 | 0.1-0.25 | 輕微位移 |
+| 不佳 | > 0.25 | 明顯位移 |
+
+**實際影響：**
+- 用戶誤點其他元素
+- 閱讀被打斷
+- 造成使用挫折感
+</Tab>
+
+<Tab value="優化策略">
+**主要優化方法：**
+
+1. **為圖片和影片包含尺寸屬性**
+```html
+<!-- 避免：沒有尺寸的圖片 -->
+<img src="image.jpg" alt="Description">
+
+<!-- 推薦：包含尺寸屬性 -->
+<img src="image.jpg" alt="Description" width="800" height="600">
+
+<!-- 或使用 aspect-ratio -->
+<img src="image.jpg" alt="Description" style="aspect-ratio: 4/3; width: 100%;">
+```
+
+2. **避免在現有內容上方插入內容**
+```javascript
+// 避免：在頂部插入內容
+const newElement = document.createElement('div');
+document.body.insertBefore(newElement, document.body.firstChild);
+
+// 推薦：在底部添加或預留空間
+document.body.appendChild(newElement);
+
+// 或預留空間
+.placeholder {
+  height: 200px; /* 預留空間給動態內容 */
+}
+```
+
+3. **使用 transform 屬性進行動畫**
+```css
+/* 避免：引起 layout 的動畫 */
+.element {
+  transition: height 0.3s, width 0.3s;
+}
+
+/* 推薦：只影響 composite 的動畫 */
+.element {
+  transition: transform 0.3s, opacity 0.3s;
+}
+```
+
+4. **優化字體載入**
+```html
+<!-- 預載入關鍵字體 -->
+<link rel="preload" href="font.woff2" as="font" type="font/woff2" crossorigin>
+
+<!-- 使用 font-display -->
+<style>
+@font-face {
+  font-family: 'CustomFont';
+  src: url('font.woff2') format('woff2');
+  font-display: swap; /* 避免 FOIT */
+}
+</style>
+```
+</Tab>
+
+</Tabs>
+
+## 效能測試工具
+
+<Files>
+  <Folder name="測試工具" defaultOpen>
+    <File name="lighthouse.md">Google Lighthouse</File>
+    <File name="pagespeed.md">PageSpeed Insights</File>
+    <File name="webdev.md">Web.dev Measure</File>
+    <File name="chrome-devtools.md">Chrome DevTools</File>
+  </Folder>
+  <Folder name="監控工具">
+    <File name="real-user-monitoring.md">Real User Monitoring</File>
+    <File name="synthetic-monitoring.md">Synthetic Monitoring</File>
+  </Folder>
+</Files>
+
+### 推薦測試流程
+
+<Steps>
+
+<Step>
+**本地開發測試**
+使用 Chrome DevTools Performance 面板進行初步分析
+</Step>
+
+<Step>
+**自動化測試**
+集成 Lighthouse CI 到構建流程中
+</Step>
+
+<Step>
+**真實用戶監控**
+部署 RUM 工具收集實際用戶數據
+</Step>
+
+<Step>
+**持續優化**
+基於數據驅動進行效能優化
+</Step>
+
+</Steps>
+
+## 實戰優化清單
+
+<Callout type="success">
+按照這個清單逐步優化，能顯著提升網頁效能
+</Callout>
+
+### 即時生效的優化
+
+```javascript
+// 1. 啟用 Gzip 壓縮
+app.use(compression());
+
+// 2. 設置適當的快取策略
+app.use(express.static('public', {
+  maxAge: '1y'
+}));
+
+// 3. 壓縮圖片
+// 使用 WebP 格式，設置適當尺寸
+```
+
+### 結構性優化
+
+```html
+<!-- 1. 優化 HTML 結構 -->
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <!-- 關鍵 CSS 內聯 -->
+  <style>
+    /* 關鍵渲染路徑的 CSS */
+  </style>
+  
+  <!-- 預載入關鍵資源 -->
+  <link rel="preload" href="critical-font.woff2" as="font" crossorigin>
+  <link rel="preload" href="hero-image.jpg" as="image">
+</head>
+<body>
+  <!-- 內容優先，腳本最後 -->
+  <main>Content</main>
+  <script src="app.js" defer></script>
+</body>
+</html>
+```
+
+### 進階優化技巧
+
+```javascript
+// 1. 實現智能預載入
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      const img = entry.target;
+      img.src = img.dataset.src;
+      observer.unobserve(img);
+    }
+  });
+});
+
+// 2. 使用 Service Worker 快取
+self.addEventListener('fetch', event => {
+  event.respondWith(
+    caches.match(event.request).then(response => {
+      return response || fetch(event.request);
+    })
+  );
+});
+```
+
+## 結論
+
+<Callout type="success">
+專注於減少請求大小、最小化第三方影響，並優化渲染流程，是提升整體網頁效能的關鍵
+</Callout>
+
+### 核心重點
+
+1. **FCP < 1.8s**：優化關鍵渲染路徑
+2. **LCP < 2.5s**：優化最大內容元素  
+3. **FID < 100ms**：減少主執行緒阻塞
+4. **CLS < 0.1**：確保視覺穩定性
+
+### 實踐建議
+
+- 使用效能預算控制資源大小
+- 實施漸進式載入策略
+- 監控真實用戶體驗數據
+- 持續優化和測試
+
+記住，效能優化是一個持續的過程，需要在功能開發和用戶體驗之間找到平衡。透過理解這些核心指標和優化策略，你能夠打造出既功能豐富又效能卓越的網頁應用。

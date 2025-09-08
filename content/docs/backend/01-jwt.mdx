@@ -1,0 +1,525 @@
+---
+title: JWT機制
+description: JSON Web Tokens、Cryptography
+icon: Shield
+---
+
+import { Tabs, Tab } from 'fumadocs-ui/components/tabs';
+import { Steps, Step } from 'fumadocs-ui/components/steps';
+import { Files, File, Folder } from 'fumadocs-ui/components/files';
+
+> 什麼是JWT?
+
+是一種開放標準Requests for comments(RFC) [7519](https://www.rfc-editor.org/rfc/rfc7519)，為了在各種端口安全傳輸JSON。JWT可以被驗證和信任，因為經過數位簽章及金鑰加密的過程(非對稱加密RSA、金鑰雜湊訊息鑑別碼 HMAC、橢圓曲線數位簽章算法 ECDSA)。旨在描述一組token(令牌)，可用於識別當前使用者身分。
+
+<Callout type="warn" title="安全警告">
+JWT 的 payload 只是 base64 編碼，不是加密！任何人都可以解碼讀取內容，所以不要在 payload 中存放敏感資訊如密碼或個人隱私資料。
+</Callout>
+
+## 對稱加密與不對稱加密
+
+屬於密碼學(cryptography)的兩種加密方式(安全機制)，防禦來自現實網路世界的攻擊者，都有加密(encryption)與解密(decryption)兩種動作，但實作上有些許的不同。透過密鑰交換讓兩台電腦在密鑰上達到共識(確認收發者的身分)的算法。
+
+- **對稱加密(symmetric encryption)**: 雙方用一樣的密鑰加密和解密，並共享一個密鑰。
+- **不對稱加密(asymmetric encryption)**: 有一組公開密鑰及私有的密鑰，用公鑰加密後，只有有私鑰的人能解密。相反，用私鑰加密後也只有公鑰的擁有者能解密。避免有心人士竊取資料。
+
+### 對稱加密特點
+- 加密速度快
+- 適合大量資料加密
+- 金鑰分發困難
+- 常見算法：AES、DES、3DES
+
+### 不對稱加密特點  
+- 加密速度較慢
+- 適合小量資料加密
+- 金鑰分發安全
+- 常見算法：RSA、ECC、DSA
+
+## JWT 結構
+
+JWT 由三個部分組成，用點(.)分隔：
+
+```
+xxxxx.yyyyy.zzzzz
+```
+
+### Header (標頭)
+
+包含令牌類型(typ)和使用的簽名算法(alg)：
+
+```json
+{
+  "alg": "HS256",
+  "typ": "JWT"
+}
+```
+
+### Payload (載荷)
+
+包含聲明(claims)，聲明是關於實體(通常是用戶)和其他數據的陳述：
+
+```json
+{
+  "sub": "1234567890",
+  "name": "John Doe", 
+  "iat": 1516239022
+}
+```
+
+### Signature (簽名)
+
+用來驗證消息在傳送過程中沒有被更改，對於使用私鑰簽名的令牌，它還可以驗證JWT的發送者是否為它所聲稱的發送者：
+
+```javascript
+HMACSHA256(
+  base64UrlEncode(header) + "." +
+  base64UrlEncode(payload),
+  secret
+)
+```
+
+## JWT 工作流程
+
+<Steps>
+  <Step>
+    ### 用戶登入
+    用戶提供憑證(用戶名/密碼)到登入 API
+    ```javascript
+    const loginData = {
+      username: 'user@example.com',
+      password: 'securePassword123'
+    };
+    ```
+  </Step>
+  <Step>
+    ### 伺服器驗證
+    後端驗證憑證正確性，通常查詢資料庫比對帳號密碼
+    ```javascript
+    const user = await User.findOne({ email: loginData.username });
+    const isValid = await bcrypt.compare(loginData.password, user.hashedPassword);
+    ```
+  </Step>
+  <Step>
+    ### 生成JWT
+    伺服器生成包含用戶信息的JWT令牌
+    ```javascript
+    const payload = {
+      userId: user.id,
+      email: user.email,
+      role: user.role
+    };
+    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
+    ```
+  </Step>
+  <Step>
+    ### 返回JWT
+    將生成的JWT返回給客戶端
+    ```javascript
+    res.json({
+      success: true,
+      token,
+      user: { id: user.id, email: user.email }
+    });
+    ```
+  </Step>
+  <Step>
+    ### 儲存JWT
+    客戶端安全地儲存JWT
+    ```javascript
+    // 推薦: 使用 httpOnly cookie (較安全)
+    document.cookie = `token=${token}; httpOnly; secure; sameSite=strict`;
+    
+    // 或存在 localStorage (較不安全，但常用)
+    localStorage.setItem('jwt_token', token);
+    ```
+  </Step>
+  <Step>
+    ### 後續請求
+    客戶端在每個受保護的API請求中包含JWT
+    ```javascript
+    const response = await fetch('/api/protected', {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    ```
+  </Step>
+  <Step>
+    ### 驗證JWT
+    伺服器驗證JWT的有效性和完整性
+    ```javascript
+    const token = req.headers.authorization?.split(' ')[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded; // 將用戶資訊附加到請求物件
+    ```
+  </Step>
+</Steps>
+
+## JWT 優點
+
+- **無狀態**: 伺服器不需要儲存session信息
+- **跨域支援**: 適合分散式系統
+- **擴展性好**: 容易水平擴展
+- **移動端友好**: 適合移動應用開發
+
+## JWT 缺點
+
+- **無法撤銷**: 在到期前無法主動撤銷
+- **資料大小**: 比session ID大
+- **安全考量**: 需要適當的儲存和傳輸保護
+
+## 實作範例
+
+<Tabs items={['Node.js', 'Python', 'Go', '前端 JavaScript']} groupId="jwt-implementation">
+  <Tab value="Node.js">
+    ```javascript title="jwt-service.js"
+    const jwt = require('jsonwebtoken');
+    const secret = process.env.JWT_SECRET;
+
+    class JWTService {
+      // 生成 JWT
+      static generateToken(payload) {
+        return jwt.sign(payload, secret, { 
+          expiresIn: '1h',
+          issuer: 'your-app-name'
+        });
+      }
+
+      // 驗證 JWT
+      static verifyToken(token) {
+        try {
+          return jwt.verify(token, secret);
+        } catch (error) {
+          throw new Error(`Invalid token: ${error.message}`);
+        }
+      }
+
+      // 解碼 JWT (不驗證)
+      static decodeToken(token) {
+        return jwt.decode(token);
+      }
+    }
+
+    // 使用範例
+    const user = { id: 1, username: 'john_doe', role: 'user' };
+    const token = JWTService.generateToken(user);
+    const decoded = JWTService.verifyToken(token);
+    ```
+  </Tab>
+  <Tab value="Python">
+    ```python title="jwt_service.py"
+    import jwt
+    import datetime
+    from typing import Dict, Any
+
+    class JWTService:
+        SECRET = 'your-secret-key'
+        ALGORITHM = 'HS256'
+        
+        @classmethod
+        def generate_token(cls, payload: Dict[str, Any]) -> str:
+            """生成 JWT token"""
+            payload['exp'] = datetime.datetime.utcnow() + datetime.timedelta(hours=1)
+            payload['iss'] = 'your-app-name'
+            return jwt.encode(payload, cls.SECRET, algorithm=cls.ALGORITHM)
+        
+        @classmethod
+        def verify_token(cls, token: str) -> Dict[str, Any]:
+            """驗證 JWT token"""
+            try:
+                return jwt.decode(token, cls.SECRET, algorithms=[cls.ALGORITHM])
+            except jwt.ExpiredSignatureError:
+                raise ValueError("Token has expired")
+            except jwt.InvalidTokenError:
+                raise ValueError("Invalid token")
+
+    # 使用範例
+    user_data = {"id": 1, "username": "john_doe", "role": "user"}
+    token = JWTService.generate_token(user_data)
+    decoded = JWTService.verify_token(token)
+    ```
+  </Tab>
+  <Tab value="Go">
+    ```go title="jwt_service.go"
+    package main
+
+    import (
+        "time"
+        "github.com/golang-jwt/jwt/v5"
+    )
+
+    type JWTService struct {
+        secretKey []byte
+        issuer    string
+    }
+
+    type Claims struct {
+        UserID   int    `json:"user_id"`
+        Username string `json:"username"`
+        Role     string `json:"role"`
+        jwt.RegisteredClaims
+    }
+
+    func NewJWTService(secret, issuer string) *JWTService {
+        return &JWTService{
+            secretKey: []byte(secret),
+            issuer:    issuer,
+        }
+    }
+
+    func (j *JWTService) GenerateToken(userID int, username, role string) (string, error) {
+        claims := Claims{
+            UserID:   userID,
+            Username: username,
+            Role:     role,
+            RegisteredClaims: jwt.RegisteredClaims{
+                ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
+                Issuer:    j.issuer,
+                IssuedAt:  jwt.NewNumericDate(time.Now()),
+            },
+        }
+
+        token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+        return token.SignedString(j.secretKey)
+    }
+
+    func (j *JWTService) VerifyToken(tokenString string) (*Claims, error) {
+        token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+            return j.secretKey, nil
+        })
+
+        if claims, ok := token.Claims.(*Claims); ok && token.Valid {
+            return claims, nil
+        }
+        return nil, err
+    }
+    ```
+  </Tab>
+  <Tab value="前端 JavaScript">
+    ```javascript title="auth-client.js"
+    class AuthClient {
+      constructor() {
+        this.tokenKey = 'jwt_token';
+      }
+
+      // 儲存 JWT (使用 httpOnly cookie 更安全)
+      storeToken(token) {
+        // 方法1: localStorage (簡單但較不安全)
+        localStorage.setItem(this.tokenKey, token);
+        
+        // 方法2: 設定 cookie (推薦)
+        document.cookie = `${this.tokenKey}=${token}; secure; sameSite=strict; max-age=3600`;
+      }
+
+      // 獲取 JWT
+      getToken() {
+        return localStorage.getItem(this.tokenKey);
+      }
+
+      // 清除 JWT
+      clearToken() {
+        localStorage.removeItem(this.tokenKey);
+        document.cookie = `${this.tokenKey}=; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+      }
+
+      // 檢查 token 是否過期
+      isTokenExpired(token) {
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          return payload.exp * 1000 < Date.now();
+        } catch {
+          return true;
+        }
+      }
+
+      // 發送認證請求
+      async makeAuthenticatedRequest(url, options = {}) {
+        const token = this.getToken();
+        
+        if (!token || this.isTokenExpired(token)) {
+          throw new Error('No valid token available');
+        }
+
+        return fetch(url, {
+          ...options,
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            ...options.headers
+          }
+        });
+      }
+
+      // 自動處理 token 刷新的請求
+      async requestWithRefresh(url, options = {}) {
+        try {
+          const response = await this.makeAuthenticatedRequest(url, options);
+          
+          if (response.status === 401) {
+            // Token 過期，嘗試刷新
+            await this.refreshToken();
+            return this.makeAuthenticatedRequest(url, options);
+          }
+          
+          return response;
+        } catch (error) {
+          console.error('Authenticated request failed:', error);
+          throw error;
+        }
+      }
+    }
+
+    // 使用範例
+    const authClient = new AuthClient();
+    
+    // 使用方式
+    authClient.requestWithRefresh('/api/user/profile')
+      .then(response => response.json())
+      .then(data => console.log('User profile:', data));
+    ```
+  </Tab>
+</Tabs>
+
+## JWT 專案結構
+
+<Files>
+  <Folder name="jwt-auth-api" defaultOpen>
+    <Folder name="src" defaultOpen>
+      <Folder name="auth">
+        <File name="jwt.service.ts" />
+        <File name="auth.middleware.ts" />
+        <File name="auth.controller.ts" />
+        <File name="crypto.utils.ts" />
+      </Folder>
+      <Folder name="routes">
+        <File name="login.ts" />
+        <File name="register.ts" />
+        <File name="protected.ts" />
+      </Folder>
+      <Folder name="models">
+        <File name="user.model.ts" />
+        <File name="token.model.ts" />
+      </Folder>
+      <File name="server.ts" />
+      <File name="app.ts" />
+    </Folder>
+    <Folder name="config">
+      <File name="database.ts" />
+      <File name="jwt.config.ts" />
+    </Folder>
+    <File name="package.json" />
+    <File name=".env.example" />
+    <File name="README.md" />
+  </Folder>
+</Files>
+
+## 安全最佳實踐
+
+<Callout type="error" title="重要安全警告">
+JWT 安全性直接影響整個應用系統的安全，務必遵循以下最佳實踐！
+</Callout>
+
+### 1. 傳輸安全
+- **使用HTTPS**: 確保JWT在傳輸過程中被加密
+- **避免URL參數**: 不要將JWT放在URL參數中，容易被日誌記錄
+
+### 2. 儲存安全
+<Tabs items={['推薦做法', '避免做法']} groupId="jwt-storage">
+  <Tab value="推薦做法">
+    ```javascript
+    // ✅ 使用 httpOnly cookie (最安全)
+    res.cookie('jwt', token, {
+      httpOnly: true,
+      secure: true, // HTTPS only
+      sameSite: 'strict',
+      maxAge: 3600000 // 1 hour
+    });
+
+    // ✅ 或使用安全的 localStorage 配合 Content Security Policy
+    if (typeof Storage !== "undefined" && window.isSecureContext) {
+      localStorage.setItem('jwt_token', token);
+    }
+    ```
+  </Tab>
+  <Tab value="避免做法">
+    ```javascript
+    // ❌ 不要這樣做
+    // 將 JWT 存在普通 cookie（沒有 httpOnly）
+    document.cookie = `token=${token}`;
+
+    // ❌ 不要存在全域變數
+    window.jwtToken = token;
+
+    // ❌ 不要存在 sessionStorage（XSS 攻擊風險）
+    sessionStorage.setItem('jwt', token);
+    ```
+  </Tab>
+</Tabs>
+
+### 3. 令牌生命週期管理
+- **短期存活**: Access token 設定短期過期（15-30分鐘）
+- **Refresh Token**: 實作更新機制來延長會話
+- **主動撤銷**: 提供登出時撤銷令牌的機制
+
+### 4. 密鑰管理
+<Callout type="warn" title="密鑰安全">
+JWT 簽名密鑰的安全性是整個認證系統的基礎！
+</Callout>
+
+```bash title="生成強密鑰"
+# 生成 256-bit 隨機密鑰
+openssl rand -base64 32
+
+# 使用環境變數管理
+export JWT_SECRET="your-super-secure-secret-key-here"
+```
+
+### 5. Payload 最佳實踐
+```javascript title="JWT Payload 範例"
+// ✅ 好的 payload 設計
+{
+  "sub": "user123",           // 主體 (用戶ID)
+  "aud": "your-app.com",      // 受眾
+  "iss": "your-auth-service", // 發行者
+  "iat": 1516239022,          // 發行時間
+  "exp": 1516242622,          // 過期時間
+  "role": "user",             // 用戶角色
+  "permissions": ["read", "write"] // 權限列表
+}
+
+// ❌ 不要在 payload 中包含
+{
+  "password": "...",          // 密碼
+  "credit_card": "...",       // 敏感個人資訊
+  "social_security": "...",   // 社會安全號碼
+}
+```
+
+### 6. 驗證檢查清單
+- ✅ 驗證簽名完整性
+- ✅ 檢查過期時間 (exp)
+- ✅ 驗證發行者 (iss)
+- ✅ 確認受眾 (aud)
+- ✅ 檢查不在黑名單中
+
+<Callout type="success" title="實作提醒">
+JWT 是現代Web應用中重要的認證機制，正確理解其工作原理和遵循安全考量是構建安全應用系統的關鍵。記住：安全性永遠是第一優先！
+</Callout>
+
+## 相關資源
+
+<Cards>
+  <Card
+    href="/docs/backend/encode"
+    title="編碼與加密"
+  >
+    了解 Encode、Decode、Hash 的區別和應用場景
+  </Card>
+  <Card
+    href="https://jwt.io"
+    title="JWT.io 官網"
+  >
+    JWT 標準規範和線上 debugger 工具
+  </Card>
+</Cards>

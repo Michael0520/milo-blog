@@ -1,0 +1,10 @@
+{
+  "title": "Frontend",
+  "pages": [
+    "01-css-grid-template",
+    "02-functional-programming", 
+    "03-web-performance",
+    "04-react-hooks-optimization",
+    "05-temporal-api"
+  ]
+}

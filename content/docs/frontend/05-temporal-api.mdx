@@ -1,0 +1,1327 @@
+---
+title: JavaScript 原生時間日期處理庫 - Temporal
+description: 深入了解 Temporal API：JavaScript 時間處理的未來標準
+icon: Clock
+---
+
+import { Tabs, Tab } from 'fumadocs-ui/components/tabs';
+import { Steps, Step } from 'fumadocs-ui/components/steps';
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Files, File, Folder } from 'fumadocs-ui/components/files';
+
+> 探索 JavaScript 時間處理的未來：Temporal API 完全指南
+
+JavaScript 的 `Date` 物件一直是開發者的痛點，充滿了設計缺陷和使用陷阱。**Temporal API** 作為 TC39 Stage 3 提案，旨在解決所有這些問題，為 JavaScript 帶來現代化的時間日期處理能力。
+
+## Temporal API 簡介
+
+<Callout type="info">
+Temporal API 是 JavaScript 的新一代時間日期處理標準，目前處於 Stage 3 階段，預期將成為原生支援的 API
+</Callout>
+
+### 核心特性
+
+<Steps>
+
+<Step>
+### 不可變性 (Immutability)
+所有操作都返回新的實例，避免意外修改
+</Step>
+
+<Step>
+### 高精度支持
+支援納秒級精度的時間計算
+</Step>
+
+<Step>
+### 完善的時區支持
+內建 IANA 時區數據庫支持
+</Step>
+
+<Step>
+### 豐富的功能集
+提供完整的時間計算、比較、格式化功能
+</Step>
+
+<Step>
+### 嚴格的字符串格式
+支援 ISO 8601 等標準格式
+</Step>
+
+<Step>
+### 非格里曆支持
+支援多種曆法系統
+</Step>
+
+</Steps>
+
+### 安裝與使用
+
+<Callout type="warn">
+Temporal API 仍在實驗階段，需要使用 polyfill
+</Callout>
+
+```bash
+# 安裝 Temporal polyfill
+npm install @js-temporal/polyfill
+
+# 或使用 pnpm
+pnpm add @js-temporal/polyfill
+```
+
+```javascript
+// 導入 Temporal polyfill
+import { Temporal } from '@js-temporal/polyfill';
+
+// 現在可以使用 Temporal API
+const now = Temporal.Now.plainDateTimeISO();
+console.log(now.toString()); // 2025-09-07T10:30:15
+```
+
+## 核心 API 概覽
+
+### 主要物件類型
+
+<Tabs items={["Instant", "ZonedDateTime", "PlainDateTime", "PlainDate", "PlainTime"]}>
+
+<Tab value="Instant">
+```javascript
+// Temporal.Instant - 時間軸上的精確點
+const instant = Temporal.Now.instant();
+console.log(instant.toString()); // 2025-09-07T10:30:15.123456789Z
+
+// 從不同格式創建
+const fromString = Temporal.Instant.from('2025-09-07T10:30:15Z');
+const fromEpoch = Temporal.Instant.fromEpochMilliseconds(Date.now());
+
+// 時間計算
+const later = instant.add({ hours: 2, minutes: 30 });
+const earlier = instant.subtract({ days: 1 });
+
+// 比較
+const isAfter = later.compare(instant) > 0; // true
+const duration = later.since(instant);
+console.log(duration.toString()); // PT2H30M
+
+// 格式化（需要時區）
+const formatted = instant.toZonedDateTimeISO('Asia/Taipei').toString();
+console.log(formatted); // 2025-09-07T18:30:15.123456789+08:00[Asia/Taipei]
+```
+
+**使用場景：**
+- UTC 時間戳存儲
+- 服務器間時間同步
+- 精確的時間點記錄
+</Tab>
+
+<Tab value="ZonedDateTime">
+```javascript
+// Temporal.ZonedDateTime - 帶時區的完整日期時間
+const zdt = Temporal.Now.zonedDateTimeISO('Asia/Taipei');
+console.log(zdt.toString()); // 2025-09-07T18:30:15.123+08:00[Asia/Taipei]
+
+// 從不同時區創建
+const tokyo = Temporal.ZonedDateTime.from({
+  year: 2025,
+  month: 9,
+  day: 7,
+  hour: 19,
+  minute: 30,
+  timeZone: 'Asia/Tokyo'
+});
+
+const newYork = tokyo.withTimeZone('America/New_York');
+console.log(newYork.toString()); // 自動轉換時區
+
+// 時區相關操作
+const offsetString = zdt.offset; // '+08:00'
+const timeZoneName = zdt.timeZoneId; // 'Asia/Taipei'
+
+// 日期時間操作
+const nextWeek = zdt.add({ weeks: 1 });
+const startOfDay = zdt.startOfDay();
+const endOfMonth = zdt.with({ day: zdt.daysInMonth }).endOfDay();
+
+// 本地化格式
+const locale = 'zh-TW';
+const formatted = zdt.toLocaleString(locale, {
+  weekday: 'long',
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit'
+});
+console.log(formatted); // 2025年9月7日 星期日 下午6:30
+```
+
+**使用場景：**
+- 用戶界面顯示
+- 預約系統
+- 事件排程
+</Tab>
+
+<Tab value="PlainDateTime">
+```javascript
+// Temporal.PlainDateTime - 不帶時區的日期時間
+const pdt = Temporal.PlainDateTime.from('2025-09-07T14:30:15');
+console.log(pdt.toString()); // 2025-09-07T14:30:15
+
+// 創建和操作
+const customDateTime = new Temporal.PlainDateTime(2025, 9, 7, 14, 30, 15);
+const modified = pdt.with({ 
+  hour: 16,
+  minute: 0,
+  second: 0 
+});
+
+// 提取組件
+const year = pdt.year;        // 2025
+const month = pdt.month;      // 9
+const dayOfWeek = pdt.dayOfWeek; // 7 (星期日)
+const dayOfYear = pdt.dayOfYear; // 250
+
+// 時間計算
+const duration = Temporal.Duration.from({ hours: 3, minutes: 45 });
+const result = pdt.add(duration);
+
+// 轉換為帶時區的時間
+const zonedInTaipei = pdt.toZonedDateTime('Asia/Taipei');
+const zonedInUTC = pdt.toZonedDateTime('UTC');
+
+// 比較
+const another = Temporal.PlainDateTime.from('2025-09-07T16:00:00');
+const comparison = pdt.until(another);
+console.log(comparison.toString()); // PT1H30M
+```
+
+**使用場景：**
+- 表單輸入處理
+- 本地時間計算
+- 數據庫存儲（無時區）
+</Tab>
+
+<Tab value="PlainDate">
+```javascript
+// Temporal.PlainDate - 純日期（無時間）
+const date = Temporal.PlainDate.from('2025-09-07');
+const today = Temporal.Now.plainDateISO();
+
+// 創建日期
+const specificDate = new Temporal.PlainDate(2025, 12, 25); // 聖誕節
+const fromObject = Temporal.PlainDate.from({ 
+  year: 2025, 
+  month: 9, 
+  day: 7 
+});
+
+// 日期操作
+const nextMonth = date.add({ months: 1 });
+const lastYear = date.subtract({ years: 1 });
+const startOfMonth = date.with({ day: 1 });
+const endOfMonth = date.with({ day: date.daysInMonth });
+
+// 日期屬性
+const dayOfWeek = date.dayOfWeek;    // 1-7 (週一到週日)
+const weekOfYear = date.weekOfYear;  // 36
+const isLeapYear = date.inLeapYear;  // false
+
+// 日期比較和計算
+const birthday = Temporal.PlainDate.from('1990-05-15');
+const age = today.since(birthday, { largestUnit: 'year' });
+console.log(`年齡: ${age.years} 歲`);
+
+// 工作日計算
+function addBusinessDays(startDate, days) {
+  let currentDate = startDate;
+  let addedDays = 0;
+  
+  while (addedDays < days) {
+    currentDate = currentDate.add({ days: 1 });
+    // 1-5 表示週一到週五
+    if (currentDate.dayOfWeek <= 5) {
+      addedDays++;
+    }
+  }
+  
+  return currentDate;
+}
+
+const workDate = addBusinessDays(date, 10);
+console.log(`10個工作日後: ${workDate.toString()}`);
+```
+
+**使用場景：**
+- 生日、紀念日
+- 工作日計算
+- 日曆應用
+</Tab>
+
+<Tab value="PlainTime">
+```javascript
+// Temporal.PlainTime - 純時間（無日期）
+const time = Temporal.PlainTime.from('14:30:15.123');
+const now = Temporal.Now.plainTimeISO();
+
+// 創建時間
+const specificTime = new Temporal.PlainTime(14, 30, 15, 123, 456, 789);
+const fromObject = Temporal.PlainTime.from({
+  hour: 9,
+  minute: 0,
+  second: 0
+});
+
+// 時間操作
+const later = time.add({ hours: 2, minutes: 30 });
+const earlier = time.subtract({ minutes: 15 });
+
+// 時間屬性
+const hour12 = time.hour > 12 ? time.hour - 12 : time.hour;
+const isPM = time.hour >= 12;
+const totalSeconds = time.hour * 3600 + time.minute * 60 + time.second;
+
+// 時間比較
+const meetingStart = Temporal.PlainTime.from('09:00');
+const meetingEnd = Temporal.PlainTime.from('10:30');
+const meetingDuration = meetingEnd.since(meetingStart);
+console.log(`會議時長: ${meetingDuration.toString()}`); // PT1H30M
+
+// 時間範圍檢查
+function isWithinBusinessHours(time) {
+  const start = Temporal.PlainTime.from('09:00');
+  const end = Temporal.PlainTime.from('17:00');
+  return time.compare(start) >= 0 && time.compare(end) <= 0;
+}
+
+console.log(isWithinBusinessHours(time)); // true/false
+
+// 格式化時間
+const formatted = time.toLocaleString('zh-TW', {
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: true
+});
+console.log(formatted); // 下午2:30
+```
+
+**使用場景：**
+- 營業時間設定
+- 提醒時間
+- 時間表管理
+</Tab>
+
+</Tabs>
+
+## 與現有方案比較
+
+<Callout type="success">
+Temporal API 解決了 Date 物件和第三方庫的諸多問題
+</Callout>
+
+### JavaScript Date vs Temporal
+
+<Tabs items={["問題對比", "API 對比", "效能對比"]}>
+
+<Tab value="問題對比">
+**JavaScript Date 的問題：**
+
+```javascript
+// ❌ Date 的各種問題
+const date = new Date();
+
+// 1. 可變性問題
+date.setHours(10);
+console.log(date); // 原始物件被修改！
+
+// 2. 月份從 0 開始
+const confusingDate = new Date(2025, 8, 7); // 實際是 9 月 7 日！
+
+// 3. 時區處理困難
+const utc = new Date('2025-09-07T10:00:00Z');
+const local = new Date('2025-09-07T10:00:00');
+console.log(utc.getTime() === local.getTime()); // 可能是 false
+
+// 4. 字符串解析不一致
+console.log(new Date('2025-09-07')); // 可能被解析為 UTC
+console.log(new Date('2025/09/07')); // 可能被解析為本地時間
+
+// 5. 計算複雜
+function addMonths(date, months) {
+  // 需要複雜的邏輯處理月份和年份轉換
+  const newDate = new Date(date.getTime());
+  newDate.setMonth(newDate.getMonth() + months);
+  return newDate;
+}
+```
+
+**✅ Temporal 的解決方案：**
+
+```javascript
+// ✅ Temporal 解決所有問題
+// 1. 不可變性
+const temporal = Temporal.Now.plainDateTimeISO();
+const newTemporal = temporal.with({ hour: 10 }); // 返回新實例
+
+// 2. 直觀的月份
+const clearDate = new Temporal.PlainDate(2025, 9, 7); // 真的是 9 月 7 日
+
+// 3. 明確的時區處理
+const utc = Temporal.Instant.from('2025-09-07T10:00:00Z');
+const zoned = utc.toZonedDateTimeISO('Asia/Taipei');
+
+// 4. 一致的字符串解析
+const isoDate = Temporal.PlainDate.from('2025-09-07');
+const isoDateTime = Temporal.PlainDateTime.from('2025-09-07T10:00:00');
+
+// 5. 簡單的計算
+const result = temporal.add({ months: 6 }); // 就這麼簡單！
+```
+</Tab>
+
+<Tab value="API 對比">
+**常見操作對比：**
+
+```javascript
+// 獲取當前時間
+// Date
+const dateNow = new Date();
+
+// Temporal
+const temporalNow = Temporal.Now.plainDateTimeISO();
+
+// 創建特定時間
+// Date
+const dateSpecific = new Date(2025, 8, 7, 14, 30); // 注意月份！
+
+// Temporal  
+const temporalSpecific = new Temporal.PlainDateTime(2025, 9, 7, 14, 30);
+
+// 時間加法
+// Date
+function addDays(date, days) {
+  const result = new Date(date.getTime());
+  result.setDate(result.getDate() + days);
+  return result;
+}
+
+// Temporal
+const result = temporal.add({ days: 7 });
+
+// 格式化
+// Date
+const formatted = dateNow.toLocaleDateString('zh-TW');
+
+// Temporal
+const formatted2 = temporalNow.toLocaleString('zh-TW');
+
+// 時區轉換
+// Date (複雜且容易出錯)
+function toTimezone(date, timezone) {
+  // 需要複雜的計算...
+}
+
+// Temporal (簡潔明了)
+const converted = zonedDateTime.withTimeZone('America/New_York');
+
+// 時間比較
+// Date
+const isAfter = date1.getTime() > date2.getTime();
+
+// Temporal
+const isAfter2 = temporal1.compare(temporal2) > 0;
+
+// 時間間隔
+// Date
+const diff = Math.abs(date2.getTime() - date1.getTime());
+const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+
+// Temporal
+const duration = temporal2.since(temporal1);
+const days2 = duration.days;
+```
+</Tab>
+
+<Tab value="效能對比">
+**效能測試比較：**
+
+```javascript
+// 效能基準測試
+function benchmarkDateOperations() {
+  const iterations = 100000;
+  
+  // Date 操作
+  console.time('Date operations');
+  for (let i = 0; i < iterations; i++) {
+    const date = new Date();
+    const newDate = new Date(date.getTime());
+    newDate.setDate(date.getDate() + 1);
+    newDate.toISOString();
+  }
+  console.timeEnd('Date operations');
+  
+  // Temporal 操作
+  console.time('Temporal operations');
+  for (let i = 0; i < iterations; i++) {
+    const temporal = Temporal.Now.plainDateTimeISO();
+    const newTemporal = temporal.add({ days: 1 });
+    newTemporal.toString();
+  }
+  console.timeEnd('Temporal operations');
+}
+
+// 記憶體使用比較
+function memoryUsageTest() {
+  const dates = [];
+  const temporals = [];
+  
+  console.time('Create 10000 Dates');
+  for (let i = 0; i < 10000; i++) {
+    dates.push(new Date());
+  }
+  console.timeEnd('Create 10000 Dates');
+  
+  console.time('Create 10000 Temporals');
+  for (let i = 0; i < 10000; i++) {
+    temporals.push(Temporal.Now.plainDateTimeISO());
+  }
+  console.timeEnd('Create 10000 Temporals');
+}
+
+// 複雜計算比較
+function complexCalculationBenchmark() {
+  const startDate = new Date('2025-01-01');
+  const startTemporal = Temporal.PlainDate.from('2025-01-01');
+  
+  console.time('Date: Add 365 days and format');
+  let dateResult = startDate;
+  for (let i = 0; i < 365; i++) {
+    dateResult = new Date(dateResult.getTime() + 24 * 60 * 60 * 1000);
+  }
+  const dateFormatted = dateResult.toLocaleDateString();
+  console.timeEnd('Date: Add 365 days and format');
+  
+  console.time('Temporal: Add 365 days and format');
+  const temporalResult = startTemporal.add({ days: 365 });
+  const temporalFormatted = temporalResult.toLocaleString();
+  console.timeEnd('Temporal: Add 365 days and format');
+  
+  console.log('Results match:', dateFormatted === temporalFormatted);
+}
+
+// 執行基準測試
+benchmarkDateOperations();
+memoryUsageTest();
+complexCalculationBenchmark();
+```
+
+**結果分析：**
+- **Date**: 創建速度快，但操作複雜且容易出錯
+- **Temporal**: 稍微慢一些，但 API 更清晰、更安全
+- **記憶體**: Temporal 可能使用更多記憶體（包含更多元數據）
+- **開發效率**: Temporal 大幅提升開發效率和代碼可讀性
+</Tab>
+
+</Tabs>
+
+## 實際應用案例
+
+### 1. 日曆應用
+
+<Files>
+  <Folder name="calendar-app" defaultOpen>
+    <File name="CalendarComponent.tsx">主日曆組件</File>
+    <File name="EventManager.ts">事件管理器</File>
+    <File name="TimeZoneHandler.ts">時區處理</File>
+    <File name="DateUtils.ts">日期工具函數</File>
+  </Folder>
+</Files>
+
+```tsx
+import { Temporal } from '@js-temporal/polyfill';
+import { useState, useMemo, useCallback } from 'react';
+
+interface CalendarEvent {
+  id: string;
+  title: string;
+  start: Temporal.ZonedDateTime;
+  end: Temporal.ZonedDateTime;
+  timeZone: string;
+  description?: string;
+  recurring?: {
+    frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
+    interval: number;
+    until?: Temporal.PlainDate;
+  };
+}
+
+function CalendarApp() {
+  const [currentMonth, setCurrentMonth] = useState(
+    () => Temporal.Now.plainDateISO()
+  );
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [selectedTimeZone, setSelectedTimeZone] = useState('Asia/Taipei');
+
+  // 生成月份的所有日期
+  const monthDates = useMemo(() => {
+    const firstDay = currentMonth.with({ day: 1 });
+    const lastDay = currentMonth.with({ day: currentMonth.daysInMonth });
+    const dates = [];
+
+    // 添加月初前的日期（用於填充週的開始）
+    const firstWeekday = firstDay.dayOfWeek; // 1-7 (Mon-Sun)
+    for (let i = firstWeekday - 1; i > 0; i--) {
+      dates.push(firstDay.subtract({ days: i }));
+    }
+
+    // 添加當月所有日期
+    for (let day = 1; day <= currentMonth.daysInMonth; day++) {
+      dates.push(firstDay.with({ day }));
+    }
+
+    // 添加月末後的日期（填充週的結束）
+    const lastWeekday = lastDay.dayOfWeek;
+    for (let i = 1; i <= 7 - lastWeekday; i++) {
+      dates.push(lastDay.add({ days: i }));
+    }
+
+    return dates;
+  }, [currentMonth]);
+
+  // 獲取特定日期的事件
+  const getEventsForDate = useCallback((date: Temporal.PlainDate) => {
+    return events.filter(event => {
+      const eventDate = event.start.withTimeZone(selectedTimeZone).toPlainDate();
+      return eventDate.equals(date);
+    });
+  }, [events, selectedTimeZone]);
+
+  // 添加事件
+  const addEvent = useCallback((eventData: Omit<CalendarEvent, 'id'>) => {
+    const newEvent: CalendarEvent = {
+      ...eventData,
+      id: crypto.randomUUID(),
+    };
+    setEvents(prev => [...prev, newEvent]);
+  }, []);
+
+  // 處理重複事件
+  const generateRecurringEvents = useCallback((baseEvent: CalendarEvent) => {
+    if (!baseEvent.recurring) return [baseEvent];
+
+    const events = [baseEvent];
+    const { frequency, interval, until } = baseEvent.recurring;
+    let currentStart = baseEvent.start;
+    
+    while (!until || currentStart.toPlainDate().compare(until) <= 0) {
+      // 根據頻率計算下一個事件時間
+      switch (frequency) {
+        case 'daily':
+          currentStart = currentStart.add({ days: interval });
+          break;
+        case 'weekly':
+          currentStart = currentStart.add({ weeks: interval });
+          break;
+        case 'monthly':
+          currentStart = currentStart.add({ months: interval });
+          break;
+        case 'yearly':
+          currentStart = currentStart.add({ years: interval });
+          break;
+      }
+
+      if (until && currentStart.toPlainDate().compare(until) > 0) break;
+
+      const duration = baseEvent.end.since(baseEvent.start);
+      const nextEnd = currentStart.add(duration);
+
+      events.push({
+        ...baseEvent,
+        id: `${baseEvent.id}-${currentStart.toPlainDate().toString()}`,
+        start: currentStart,
+        end: nextEnd,
+      });
+
+      // 防止無限迴圈
+      if (events.length > 100) break;
+    }
+
+    return events;
+  }, []);
+
+  // 月份導航
+  const navigateMonth = useCallback((direction: 'prev' | 'next') => {
+    setCurrentMonth(prev => 
+      direction === 'prev' 
+        ? prev.subtract({ months: 1 })
+        : prev.add({ months: 1 })
+    );
+  }, []);
+
+  // 今日高亮
+  const isToday = useCallback((date: Temporal.PlainDate) => {
+    const today = Temporal.Now.plainDateISO();
+    return date.equals(today);
+  }, []);
+
+  return (
+    <div className="calendar-app">
+      {/* 月份導航 */}
+      <div className="calendar-header">
+        <button onClick={() => navigateMonth('prev')}>‹</button>
+        <h2>{currentMonth.toLocaleString('zh-TW', { 
+          year: 'numeric', 
+          month: 'long' 
+        })}</h2>
+        <button onClick={() => navigateMonth('next')}>›</button>
+      </div>
+
+      {/* 時區選擇 */}
+      <div className="timezone-selector">
+        <select 
+          value={selectedTimeZone} 
+          onChange={(e) => setSelectedTimeZone(e.target.value)}
+        >
+          <option value="Asia/Taipei">台北時間</option>
+          <option value="America/New_York">紐約時間</option>
+          <option value="Europe/London">倫敦時間</option>
+          <option value="Asia/Tokyo">東京時間</option>
+        </select>
+      </div>
+
+      {/* 日曆網格 */}
+      <div className="calendar-grid">
+        {['週一', '週二', '週三', '週四', '週五', '週六', '週日'].map(day => (
+          <div key={day} className="calendar-header-day">
+            {day}
+          </div>
+        ))}
+        
+        {monthDates.map((date, index) => {
+          const dayEvents = getEventsForDate(date);
+          const isCurrentMonth = date.month === currentMonth.month;
+          
+          return (
+            <div 
+              key={index}
+              className={`calendar-day ${isCurrentMonth ? 'current-month' : 'other-month'} ${isToday(date) ? 'today' : ''}`}
+            >
+              <span className="day-number">{date.day}</span>
+              <div className="events">
+                {dayEvents.slice(0, 3).map(event => (
+                  <div key={event.id} className="event">
+                    {event.title}
+                  </div>
+                ))}
+                {dayEvents.length > 3 && (
+                  <div className="more-events">
+                    +{dayEvents.length - 3} 更多
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* 事件添加表單 */}
+      <EventForm onAddEvent={addEvent} defaultTimeZone={selectedTimeZone} />
+    </div>
+  );
+}
+
+// 事件表單組件
+function EventForm({ onAddEvent, defaultTimeZone }: {
+  onAddEvent: (event: Omit<CalendarEvent, 'id'>) => void;
+  defaultTimeZone: string;
+}) {
+  const [title, setTitle] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [startTime, setStartTime] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [endTime, setEndTime] = useState('');
+
+  const handleSubmit = useCallback((e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      const start = Temporal.PlainDateTime
+        .from(`${startDate}T${startTime}`)
+        .toZonedDateTime(defaultTimeZone);
+        
+      const end = Temporal.PlainDateTime
+        .from(`${endDate}T${endTime}`)
+        .toZonedDateTime(defaultTimeZone);
+
+      onAddEvent({
+        title,
+        start,
+        end,
+        timeZone: defaultTimeZone,
+      });
+
+      // 重置表單
+      setTitle('');
+      setStartDate('');
+      setStartTime('');
+      setEndDate('');
+      setEndTime('');
+    } catch (error) {
+      console.error('Invalid date/time format:', error);
+    }
+  }, [title, startDate, startTime, endDate, endTime, defaultTimeZone, onAddEvent]);
+
+  return (
+    <form onSubmit={handleSubmit} className="event-form">
+      <h3>添加事件</h3>
+      
+      <input
+        type="text"
+        placeholder="事件標題"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        required
+      />
+      
+      <div className="datetime-inputs">
+        <div>
+          <label>開始時間</label>
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            required
+          />
+          <input
+            type="time"
+            value={startTime}
+            onChange={(e) => setStartTime(e.target.value)}
+            required
+          />
+        </div>
+        
+        <div>
+          <label>結束時間</label>
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            required
+          />
+          <input
+            type="time"
+            value={endTime}
+            onChange={(e) => setEndTime(e.target.value)}
+            required
+          />
+        </div>
+      </div>
+      
+      <button type="submit">添加事件</button>
+    </form>
+  );
+}
+```
+
+### 2. React Hooks 整合
+
+<Callout type="success">
+將 Temporal API 封裝為可重用的 React Hooks
+</Callout>
+
+```tsx
+import { Temporal } from '@js-temporal/polyfill';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+
+// 1. 當前時間 Hook
+function useCurrentTime(updateInterval: number = 1000) {
+  const [currentTime, setCurrentTime] = useState(() => 
+    Temporal.Now.zonedDateTimeISO()
+  );
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(Temporal.Now.zonedDateTimeISO());
+    }, updateInterval);
+
+    return () => clearInterval(timer);
+  }, [updateInterval]);
+
+  return currentTime;
+}
+
+// 2. 時區轉換 Hook
+function useTimeZoneConverter() {
+  const [sourceTimeZone, setSourceTimeZone] = useState('UTC');
+  const [targetTimeZone, setTargetTimeZone] = useState('Asia/Taipei');
+
+  const convertTime = useCallback((
+    dateTime: string | Temporal.ZonedDateTime,
+    from?: string,
+    to?: string
+  ) => {
+    try {
+      let zonedDateTime: Temporal.ZonedDateTime;
+      
+      if (typeof dateTime === 'string') {
+        const plainDateTime = Temporal.PlainDateTime.from(dateTime);
+        zonedDateTime = plainDateTime.toZonedDateTime(from || sourceTimeZone);
+      } else {
+        zonedDateTime = dateTime;
+      }
+      
+      return zonedDateTime.withTimeZone(to || targetTimeZone);
+    } catch (error) {
+      console.error('Time conversion error:', error);
+      return null;
+    }
+  }, [sourceTimeZone, targetTimeZone]);
+
+  return {
+    sourceTimeZone,
+    targetTimeZone,
+    setSourceTimeZone,
+    setTargetTimeZone,
+    convertTime,
+  };
+}
+
+// 3. 倒計時 Hook
+function useCountdown(targetDate: Temporal.ZonedDateTime) {
+  const [timeLeft, setTimeLeft] = useState(() => {
+    const now = Temporal.Now.zonedDateTimeISO(targetDate.timeZoneId);
+    return targetDate.since(now);
+  });
+
+  const [isExpired, setIsExpired] = useState(false);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const now = Temporal.Now.zonedDateTimeISO(targetDate.timeZoneId);
+      const remaining = targetDate.since(now);
+      
+      if (remaining.total({ unit: 'second' }) <= 0) {
+        setIsExpired(true);
+        setTimeLeft(Temporal.Duration.from({ seconds: 0 }));
+        clearInterval(timer);
+      } else {
+        setTimeLeft(remaining);
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [targetDate]);
+
+  const formatTimeLeft = useCallback(() => {
+    const totalSeconds = timeLeft.total({ unit: 'second' });
+    
+    if (totalSeconds <= 0) return '已過期';
+    
+    const days = Math.floor(totalSeconds / (24 * 3600));
+    const hours = Math.floor((totalSeconds % (24 * 3600)) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = Math.floor(totalSeconds % 60);
+    
+    const parts = [];
+    if (days > 0) parts.push(`${days}天`);
+    if (hours > 0) parts.push(`${hours}小時`);
+    if (minutes > 0) parts.push(`${minutes}分`);
+    if (seconds > 0) parts.push(`${seconds}秒`);
+    
+    return parts.join(' ');
+  }, [timeLeft]);
+
+  return {
+    timeLeft,
+    isExpired,
+    formatTimeLeft,
+  };
+}
+
+// 4. 營業時間檢查 Hook
+interface BusinessHours {
+  [day: string]: {
+    open: Temporal.PlainTime;
+    close: Temporal.PlainTime;
+  } | null;
+}
+
+function useBusinessHours(businessHours: BusinessHours, timeZone: string = 'Asia/Taipei') {
+  const currentTime = useCurrentTime(60000); // 每分鐘更新
+
+  const isOpen = useMemo(() => {
+    const now = currentTime.withTimeZone(timeZone);
+    const dayOfWeek = now.dayOfWeek; // 1-7 (Mon-Sun)
+    const dayNames = ['', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    const todaySchedule = businessHours[dayNames[dayOfWeek]];
+    
+    if (!todaySchedule) return false;
+    
+    const currentTime = now.toPlainTime();
+    return currentTime.compare(todaySchedule.open) >= 0 && 
+           currentTime.compare(todaySchedule.close) <= 0;
+  }, [currentTime, businessHours, timeZone]);
+
+  const nextOpenTime = useMemo(() => {
+    if (isOpen) return null;
+    
+    const now = currentTime.withTimeZone(timeZone);
+    
+    // 檢查今天是否還會開門
+    const dayOfWeek = now.dayOfWeek;
+    const dayNames = ['', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    const todaySchedule = businessHours[dayNames[dayOfWeek]];
+    
+    if (todaySchedule && now.toPlainTime().compare(todaySchedule.open) < 0) {
+      // 今天還會開門
+      return now.toPlainDate().toZonedDateTime({
+        timeZone,
+        plainTime: todaySchedule.open
+      });
+    }
+    
+    // 查找下一個營業日
+    for (let i = 1; i <= 7; i++) {
+      const nextDay = now.add({ days: i });
+      const nextDayOfWeek = nextDay.dayOfWeek;
+      const nextDaySchedule = businessHours[dayNames[nextDayOfWeek]];
+      
+      if (nextDaySchedule) {
+        return nextDay.toPlainDate().toZonedDateTime({
+          timeZone,
+          plainTime: nextDaySchedule.open
+        });
+      }
+    }
+    
+    return null;
+  }, [currentTime, businessHours, timeZone, isOpen]);
+
+  return {
+    isOpen,
+    nextOpenTime,
+    currentTime,
+  };
+}
+
+// 5. 使用範例組件
+function BusinessStatusWidget() {
+  const businessHours: BusinessHours = {
+    monday: { 
+      open: Temporal.PlainTime.from('09:00'), 
+      close: Temporal.PlainTime.from('18:00') 
+    },
+    tuesday: { 
+      open: Temporal.PlainTime.from('09:00'), 
+      close: Temporal.PlainTime.from('18:00') 
+    },
+    wednesday: { 
+      open: Temporal.PlainTime.from('09:00'), 
+      close: Temporal.PlainTime.from('18:00') 
+    },
+    thursday: { 
+      open: Temporal.PlainTime.from('09:00'), 
+      close: Temporal.PlainTime.from('18:00') 
+    },
+    friday: { 
+      open: Temporal.PlainTime.from('09:00'), 
+      close: Temporal.PlainTime.from('18:00') 
+    },
+    saturday: null, // 週六不營業
+    sunday: null,   // 週日不營業
+  };
+
+  const { isOpen, nextOpenTime, currentTime } = useBusinessHours(businessHours);
+  
+  // 倒計時到下一次開門
+  const countdown = useCountdown(nextOpenTime || currentTime.add({ days: 1 }));
+
+  return (
+    <div className="business-status">
+      <h3>營業狀態</h3>
+      <div className={`status ${isOpen ? 'open' : 'closed'}`}>
+        {isOpen ? '🟢 營業中' : '🔴 已打烊'}
+      </div>
+      
+      <div className="current-time">
+        當前時間: {currentTime.toLocaleString('zh-TW', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        })}
+      </div>
+      
+      {!isOpen && nextOpenTime && (
+        <div className="next-open">
+          下次營業: {nextOpenTime.toLocaleString('zh-TW', {
+            weekday: 'long',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          })}
+          <br />
+          倒計時: {countdown.formatTimeLeft()}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// 6. 世界時鐘組件
+function WorldClock() {
+  const { convertTime } = useTimeZoneConverter();
+  const currentTime = useCurrentTime();
+  
+  const timeZones = [
+    { name: '台北', zone: 'Asia/Taipei' },
+    { name: '東京', zone: 'Asia/Tokyo' },
+    { name: '紐約', zone: 'America/New_York' },
+    { name: '倫敦', zone: 'Europe/London' },
+    { name: '巴黎', zone: 'Europe/Paris' },
+    { name: '雪梨', zone: 'Australia/Sydney' },
+  ];
+
+  return (
+    <div className="world-clock">
+      <h3>世界時鐘</h3>
+      <div className="clocks">
+        {timeZones.map(({ name, zone }) => {
+          const localTime = convertTime(currentTime, currentTime.timeZoneId, zone);
+          
+          return (
+            <div key={zone} className="clock">
+              <div className="city-name">{name}</div>
+              <div className="time">
+                {localTime?.toLocaleString('zh-TW', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  second: '2-digit',
+                  hour12: false
+                })}
+              </div>
+              <div className="date">
+                {localTime?.toLocaleString('zh-TW', {
+                  month: 'short',
+                  day: 'numeric',
+                  weekday: 'short'
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+```
+
+## 遷移指南
+
+<Callout type="warn">
+從現有的 Date 或第三方庫遷移到 Temporal 需要謹慎計劃
+</Callout>
+
+### 漸進式遷移策略
+
+<Steps>
+
+<Step>
+### 評估當前代碼
+識別所有時間相關的代碼和依賴
+</Step>
+
+<Step>
+### 創建工具函數
+封裝 Temporal 操作，提供統一介面
+</Step>
+
+<Step>
+### 逐步替換
+從低風險的功能開始，逐步替換
+</Step>
+
+<Step>
+### 測試驗證
+確保遷移後的功能行為一致
+</Step>
+
+</Steps>
+
+### 遷移工具函數
+
+```typescript
+// 遷移輔助工具
+class TemporalMigrationHelper {
+  // Date 到 Temporal 的轉換
+  static dateToTemporal(date: Date, timeZone: string = 'UTC'): Temporal.ZonedDateTime {
+    const instant = Temporal.Instant.fromEpochMilliseconds(date.getTime());
+    return instant.toZonedDateTimeISO(timeZone);
+  }
+
+  // Temporal 到 Date 的轉換
+  static temporalToDate(temporal: Temporal.ZonedDateTime): Date {
+    return new Date(temporal.epochMilliseconds);
+  }
+
+  // 漸進式替換的包裝器
+  static createDateWrapper(useTemporalInternally: boolean = false) {
+    return {
+      now(): Date | Temporal.ZonedDateTime {
+        if (useTemporalInternally) {
+          return Temporal.Now.zonedDateTimeISO();
+        }
+        return new Date();
+      },
+
+      add(
+        date: Date | Temporal.ZonedDateTime, 
+        amount: { days?: number; months?: number; years?: number }
+      ): Date | Temporal.ZonedDateTime {
+        if (useTemporalInternally) {
+          const temporal = date instanceof Date 
+            ? this.constructor.dateToTemporal(date)
+            : date as Temporal.ZonedDateTime;
+          return temporal.add(amount);
+        } else {
+          const jsDate = date instanceof Date 
+            ? date 
+            : this.constructor.temporalToDate(date as Temporal.ZonedDateTime);
+          const result = new Date(jsDate.getTime());
+          
+          if (amount.days) result.setDate(result.getDate() + amount.days);
+          if (amount.months) result.setMonth(result.getMonth() + amount.months);
+          if (amount.years) result.setFullYear(result.getFullYear() + amount.years);
+          
+          return result;
+        }
+      }
+    };
+  }
+}
+
+// 使用範例
+const dateHelper = TemporalMigrationHelper.createDateWrapper(
+  process.env.USE_TEMPORAL === 'true'
+);
+
+const currentTime = dateHelper.now();
+const nextWeek = dateHelper.add(currentTime, { days: 7 });
+```
+
+## 最佳實踐建議
+
+<Callout type="success">
+遵循這些最佳實踐，能夠充分發揮 Temporal API 的優勢
+</Callout>
+
+### 1. 選擇合適的物件類型
+
+```javascript
+// ✅ 根據使用場景選擇正確的類型
+// 需要精確的時間點記錄
+const logTime = Temporal.Now.instant();
+
+// 用戶界面顯示
+const displayTime = Temporal.Now.zonedDateTimeISO('Asia/Taipei');
+
+// 純日期操作（生日、節日）
+const birthday = Temporal.PlainDate.from('1990-05-15');
+
+// 純時間操作（營業時間、提醒）
+const openTime = Temporal.PlainTime.from('09:00');
+
+// 本地時間計算（無需時區）
+const appointment = Temporal.PlainDateTime.from('2025-09-07T14:30');
+```
+
+### 2. 正確處理時區
+
+```javascript
+// ✅ 明確指定時區
+const meeting = Temporal.PlainDateTime
+  .from('2025-09-07T14:00')
+  .toZonedDateTime('Asia/Taipei');
+
+// ✅ 時區轉換
+const meetingInNY = meeting.withTimeZone('America/New_York');
+
+// ✅ 避免時區陷阱
+function scheduleRecurringMeeting(
+  startTime: Temporal.PlainDateTime,
+  timeZone: string,
+  recurrence: 'weekly' | 'monthly'
+) {
+  const meetings = [];
+  let current = startTime.toZonedDateTime(timeZone);
+  
+  for (let i = 0; i < 10; i++) {
+    meetings.push(current);
+    current = recurrence === 'weekly'
+      ? current.add({ weeks: 1 })
+      : current.add({ months: 1 });
+  }
+  
+  return meetings;
+}
+```
+
+### 3. 效能優化
+
+```javascript
+// ✅ 重用 Temporal 實例
+class DateCache {
+  private cache = new Map<string, Temporal.ZonedDateTime>();
+  
+  getDateTime(isoString: string, timeZone: string): Temporal.ZonedDateTime {
+    const key = `${isoString}-${timeZone}`;
+    
+    if (!this.cache.has(key)) {
+      const dateTime = Temporal.Instant
+        .from(isoString)
+        .toZonedDateTimeISO(timeZone);
+      this.cache.set(key, dateTime);
+    }
+    
+    return this.cache.get(key)!;
+  }
+}
+
+// ✅ 批量操作優化
+function processTimeData(timestamps: string[]) {
+  const processed = timestamps.map(ts => {
+    const instant = Temporal.Instant.from(ts);
+    return {
+      utc: instant,
+      taipei: instant.toZonedDateTimeISO('Asia/Taipei'),
+      tokyo: instant.toZonedDateTimeISO('Asia/Tokyo')
+    };
+  });
+  
+  return processed;
+}
+```
+
+## 結論與展望
+
+<Callout type="info">
+Temporal API 代表了 JavaScript 時間處理的未來，值得開發者提前學習和採用
+</Callout>
+
+### 核心優勢總結
+
+1. **類型安全**: 明確的 API 設計減少錯誤
+2. **不可變性**: 避免意外修改帶來的問題
+3. **國際化支持**: 完善的時區和本地化功能
+4. **現代化設計**: 符合現代 JavaScript 開發習慣
+
+### 採用建議
+
+- **新專案**: 建議直接使用 Temporal API
+- **現有專案**: 可以漸進式遷移，從新功能開始
+- **學習投資**: 提前掌握將在未來成為標準的技術
+
+### 未來發展
+
+隨著 Temporal API 進入 Stage 4 並被瀏覽器原生支援，它將成為 JavaScript 時間處理的標準方案。現在學習和採用 Temporal，能夠讓你在這個轉變中佔得先機，寫出更可靠、更易維護的時間處理代碼。
+
+JavaScript 的時間處理終於要迎來春天了！🌅

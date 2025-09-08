@@ -1,0 +1,746 @@
+---
+title: Encode、Decode、Hash 是甚麼東西?
+description: 編碼、解碼、加密
+icon: LockKeyhole
+---
+
+import { Tabs, Tab } from 'fumadocs-ui/components/tabs';
+import { Steps, Step } from 'fumadocs-ui/components/steps';
+
+> Encode、Decode、Hash
+
+最近同事為了一個需求而苦惱，想要把 URI 上的資料存入前端框架中並能反向讀入儲存字串在反導出 URI，卻發現轉入框架時，資料無法按照他的想法轉換，
+同事們討論的過程，聽到了幾個關鍵字，於是想記錄下來 ~
+
+<Callout type="info" title="核心概念差異">
+- **Encoding**: 資料格式轉換，可逆，目的是相容性和傳輸
+- **Hashing**: 單向轉換，不可逆，目的是驗證和安全
+- **Encryption**: 雙向轉換，需要金鑰，目的是機密性
+</Callout>
+
+## Encode（編碼）
+
+編碼是指將數據從一種形式轉換為另一種形式的過程，以便在不同系統或環境中進行傳輸或存儲。
+
+<Callout type="success" title="編碼特點">
+✅ 可逆轉換 ✅ 不需要金鑰 ✅ 公開算法 ✅ 用於數據相容性
+</Callout>
+
+### 常見編碼類型比較
+
+<Tabs items={['URL 編碼', 'Base64 編碼', 'HTML 編碼', '字符編碼']} groupId="encoding-types">
+  <Tab value="URL 編碼">
+    **用途**: URL中特殊字符的安全傳輸 (RFC 3986)
+    
+    **什麼時候使用**:
+    - URL 參數包含空格、中文或特殊符號
+    - 處理 query string 資料
+    - RESTful API 路徑參數
+    
+    ```javascript title="URL 編碼範例"
+    const data = {
+      name: '張三',
+      email: 'user@example.com',
+      message: 'Hello World! 你好世界 #tag'
+    };
+    
+    // 編碼單個參數
+    const encodedName = encodeURIComponent(data.name);
+    console.log(encodedName); // '%E5%BC%B5%E4%B8%89'
+    
+    // 編碼完整 query string
+    const queryString = Object.entries(data)
+      .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
+      .join('&');
+    
+    console.log(queryString);
+    // name=%E5%BC%B5%E4%B8%89&email=user%40example.com&message=Hello%20World!...
+    
+    // 解碼
+    const decodedName = decodeURIComponent(encodedName);
+    console.log(decodedName); // '張三'
+    ```
+    
+    <Callout type="warn" title="注意事項">
+    `encodeURI()` vs `encodeURIComponent()`: 前者不編碼 URL 保留字符（如 `:/?#`），後者編碼所有特殊字符。一般參數值用 `encodeURIComponent()`。
+    </Callout>
+  </Tab>
+  <Tab value="Base64 編碼">
+    **用途**: 將二進制數據轉為文本格式 (RFC 4648)
+    
+    **什麼時候使用**:
+    - 在 JSON 中傳輸圖片或文件
+    - Email 附件編碼
+    - Data URLs (`data:image/png;base64,...`)
+    - JWT token 的 header 和 payload
+    
+    ```javascript title="Base64 編碼範例"
+    // 文字編碼
+    const text = 'Hello 世界! 🚀';
+    const encoded = btoa(unescape(encodeURIComponent(text)));
+    console.log(encoded); // 'SGVsbG8g5LiW55WMISAg8J+agA=='
+    
+    // 文字解碼  
+    const decoded = decodeURIComponent(escape(atob(encoded)));
+    console.log(decoded); // 'Hello 世界! 🚀'
+    
+    // 文件轉 Base64 (瀏覽器環境)
+    function fileToBase64(file) {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.readAsDataURL(file); // 自動加上 data:mime-type;base64, 前綴
+      });
+    }
+    
+    // 使用範例
+    const input = document.querySelector('input[type="file"]');
+    input.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      const base64 = await fileToBase64(file);
+      console.log(base64); // data:image/png;base64,iVBORw0KGgoAAAANSUhE...
+    });
+    
+    // Node.js 環境
+    const fs = require('fs');
+    const fileBuffer = fs.readFileSync('image.png');
+    const base64String = fileBuffer.toString('base64');
+    ```
+    
+    <Callout type="info" title="Base64 特性">
+    - 會增加約 33% 的資料大小
+    - 使用 A-Z, a-z, 0-9, +, / 和 = (padding)
+    - 不適合大文件，建議用於小於 1MB 的資料
+    </Callout>
+  </Tab>
+  <Tab value="HTML 編碼">
+    **用途**: 防止 HTML 注入攻擊，顯示 HTML 標籤為純文字
+    
+    **什麼時候使用**:
+    - 用戶輸入內容顯示
+    - 防止 XSS 攻擊
+    - 在 HTML 中顯示程式碼
+    
+    ```javascript title="HTML 編碼範例"
+    // 基本 HTML 實體編碼
+    function htmlEncode(str) {
+      const entityMap = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+        '/': '&#x2F;'
+      };
+      
+      return str.replace(/[&<>"'\/]/g, (char) => entityMap[char]);
+    }
+    
+    // 實際使用
+    const userInput = '<script>alert("XSS Attack!");</script>';
+    const safeOutput = htmlEncode(userInput);
+    console.log(safeOutput); 
+    // '&lt;script&gt;alert(&quot;XSS Attack!&quot;);&lt;&#x2F;script&gt;'
+    
+    // HTML 解碼
+    function htmlDecode(str) {
+      const textarea = document.createElement('textarea');
+      textarea.innerHTML = str;
+      return textarea.value;
+    }
+    
+    const decoded = htmlDecode(safeOutput);
+    console.log(decoded); // '<script>alert("XSS Attack!");</script>'
+    
+    // 現代瀏覽器 API
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+    const encoded = encoder.encode(userInput);
+    const decodedText = decoder.decode(encoded);
+    ```
+    
+    <Callout type="error" title="安全警告">
+    永遠不要信任用戶輸入！在顯示用戶提供的內容前，務必進行適當的編碼或過濾。
+    </Callout>
+  </Tab>
+  <Tab value="字符編碼">
+    **用途**: 字符到數字的對應關係
+    
+    **常見編碼**:
+    - **ASCII**: 7位元，支援英文字符
+    - **UTF-8**: 可變長度，支援全世界語言
+    - **UTF-16**: 16位元為基礎，JavaScript 內部使用
+    
+    ```javascript title="字符編碼範例"
+    const text = 'Hello 世界! 🌍';
+    
+    // UTF-8 編碼 (Node.js/現代瀏覽器)
+    const utf8Encoded = new TextEncoder().encode(text);
+    console.log(utf8Encoded); 
+    // Uint8Array [72, 101, 108, 108, 111, 32, 228, 184, 150, ...]
+    
+    // UTF-8 解碼
+    const utf8Decoded = new TextDecoder('utf-8').decode(utf8Encoded);
+    console.log(utf8Decoded); // 'Hello 世界! 🌍'
+    
+    // 字符碼點 (Code Point)
+    for (let char of text) {
+      console.log(`${char}: ${char.codePointAt(0)}`);
+    }
+    // H: 72
+    // e: 101
+    // l: 108
+    // 世: 19990
+    // 🌍: 127757
+    
+    // ASCII vs Unicode 比較
+    const ascii = 'Hello';
+    const unicode = '你好';
+    
+    console.log('ASCII 長度:', ascii.length); // 5
+    console.log('Unicode 長度:', unicode.length); // 2
+    console.log('UTF-8 位元組:', new TextEncoder().encode(ascii).length); // 5
+    console.log('UTF-8 位元組:', new TextEncoder().encode(unicode).length); // 6
+    ```
+    
+    <Callout type="info" title="編碼選擇建議">
+    - **Web 應用**: 統一使用 UTF-8
+    - **資料庫**: UTF-8 或 UTF8MB4 (支援 Emoji)
+    - **API**: Content-Type 明確指定字符編碼
+    </Callout>
+  </Tab>
+</Tabs>
+
+## Decode（解碼）
+
+解碼是編碼的逆過程，將編碼後的數據轉換回其原始形式。
+
+## Hash（哈希）
+
+哈希是一種將任意大小的數據轉換為固定大小的哈希值的過程，通常用於加密和數據完整性檢查。
+
+<Callout type="error" title="重要特性">
+❌ **不可逆** - 無法從哈希值還原原始資料  
+✅ **固定長度** - 相同算法產生固定長度輸出  
+✅ **雪崩效應** - 輸入微小變化導致輸出巨大差異  
+✅ **確定性** - 相同輸入永遠產生相同輸出
+</Callout>
+
+### 哈希算法比較
+
+<Tabs items={['安全哈希 (SHA)', '快速哈希 (MD5)', '密碼哈希', '現代哈希']} groupId="hash-algorithms">
+  <Tab value="安全哈希 (SHA)">
+    **推薦用途**: 文件完整性驗證、數位簽章、區塊鏈
+    
+    ```javascript title="SHA 系列哈希"
+    // SHA-256 (推薦)
+    async function sha256Hash(data) {
+      const encoder = new TextEncoder();
+      const dataBuffer = encoder.encode(data);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', dataBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(byte => byte.toString(16).padStart(2, '0')).join('');
+    }
+    
+    // SHA-512 (更安全但較慢)
+    async function sha512Hash(data) {
+      const encoder = new TextEncoder();
+      const dataBuffer = encoder.encode(data);
+      const hashBuffer = await crypto.subtle.digest('SHA-512', dataBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(byte => byte.toString(16).padStart(2, '0')).join('');
+    }
+    
+    // 使用範例
+    const message = 'Hello World!';
+    
+    sha256Hash(message).then(hash => {
+      console.log('SHA-256:', hash);
+      // 7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069
+    });
+    
+    sha512Hash(message).then(hash => {
+      console.log('SHA-512:', hash.substring(0, 64) + '...');
+      // 861844d6704e8573fec34d967e20bcfef3d424cf48be04e6dc08f2bd58c72743...
+    });
+    
+    // Node.js 版本
+    const crypto = require('crypto');
+    
+    function createSHA256(data) {
+      return crypto.createHash('sha256').update(data).digest('hex');
+    }
+    
+    console.log(createSHA256('Hello World!'));
+    ```
+    
+    **特點**:
+    - SHA-256: 256 位輸出，Bitcoin 使用
+    - SHA-512: 512 位輸出，更高安全性
+    - 計算速度中等，安全性高
+    - 適用於數位憑證、檔案校驗
+  </Tab>
+  <Tab value="快速哈希 (MD5)">
+    **⚠️ 不推薦用於安全用途** - 僅用於非安全場合的快速校驗
+    
+    ```javascript title="MD5 哈希 (僅供參考)"
+    // 瀏覽器環境需要外部函式庫
+    // Node.js 範例
+    const crypto = require('crypto');
+    
+    function md5Hash(data) {
+      return crypto.createHash('md5').update(data).digest('hex');
+    }
+    
+    console.log(md5Hash('Hello World!')); 
+    // ed076287532e86365e841e92bfc50d8c
+    
+    // 展示 MD5 碰撞脆弱性
+    const input1 = 'Hello World!';
+    const input2 = 'Hello World.'; // 只差一個字符
+    
+    console.log('MD5 輸入1:', md5Hash(input1));
+    console.log('MD5 輸入2:', md5Hash(input2));
+    // 完全不同的哈希值，但 MD5 已知存在碰撞攻擊
+    ```
+    
+    <Callout type="warn" title="MD5 限制">
+    - ❌ 已被破解，存在碰撞攻擊
+    - ❌ 不適合密碼儲存或安全用途  
+    - ✅ 可用於文件校驗（非安全場合）
+    - ✅ 計算速度快
+    </Callout>
+  </Tab>
+  <Tab value="密碼哈希">
+    **專用於密碼儲存** - 包含 Salt 和多輪迭代
+    
+    ```javascript title="密碼哈希最佳實踐"
+    // bcrypt 範例 (Node.js)
+    const bcrypt = require('bcryptjs');
+    
+    // 密碼哈希
+    async function hashPassword(password) {
+      const saltRounds = 12; // 計算成本，建議 12 以上
+      return await bcrypt.hash(password, saltRounds);
+    }
+    
+    // 密碼驗證
+    async function verifyPassword(password, hash) {
+      return await bcrypt.compare(password, hash);
+    }
+    
+    // 使用範例
+    const password = 'mySecurePassword123!';
+    
+    hashPassword(password).then(async (hashed) => {
+      console.log('哈希後:', hashed);
+      // $2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqyPw9BcOZEwsWZ6c3k5.1K
+      
+      // 驗證密碼
+      const isValid = await verifyPassword(password, hashed);
+      console.log('密碼正確:', isValid); // true
+      
+      const isInvalid = await verifyPassword('wrongPassword', hashed);
+      console.log('錯誤密碼:', isInvalid); // false
+    });
+    
+    // PBKDF2 範例
+    const crypto = require('crypto');
+    
+    function pbkdf2Hash(password, salt = null) {
+      if (!salt) {
+        salt = crypto.randomBytes(32).toString('hex');
+      }
+      
+      const hash = crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512');
+      return {
+        salt: salt,
+        hash: hash.toString('hex')
+      };
+    }
+    
+    const passwordHash = pbkdf2Hash('myPassword');
+    console.log('PBKDF2:', passwordHash);
+    ```
+    
+    **密碼哈希原則**:
+    - ✅ 使用 Salt 防止彩虹表攻擊
+    - ✅ 多輪迭代增加計算成本
+    - ✅ 隨機 Salt，每個密碼獨一無二
+    - ✅ 使用 bcrypt, scrypt, Argon2 等專用算法
+  </Tab>
+  <Tab value="現代哈希">
+    **最新推薦** - 現代高效能哈希算法
+    
+    ```javascript title="現代哈希算法"
+    // BLAKE2 (需要外部函式庫)
+    // 比 SHA-256 更快，安全性相當
+    
+    // xxHash (極速非加密哈希)
+    const XXH = require('xxhashjs');
+    
+    function xxhash64(data) {
+      return XXH.h64(data, 0xABCD).toString(16);
+    }
+    
+    console.log('xxHash:', xxhash64('Hello World!'));
+    // 高速哈希，適用於哈希表、校驗和
+    
+    // CityHash, MurmurHash 等
+    // 主要用於哈希表、分散式系統
+    
+    // Argon2 (密碼哈希金標準)
+    const argon2 = require('argon2');
+    
+    async function argon2Hash(password) {
+      try {
+        const hash = await argon2.hash(password, {
+          type: argon2.argon2id,
+          memoryCost: 2 ** 16, // 64 MB
+          timeCost: 3,         // 3 iterations
+          parallelism: 1,      // 1 thread
+        });
+        return hash;
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    
+    async function argon2Verify(password, hash) {
+      try {
+        return await argon2.verify(hash, password);
+      } catch (err) {
+        console.error(err);
+        return false;
+      }
+    }
+    ```
+    
+    **選擇指南**:
+    - **密碼**: Argon2 > bcrypt > PBKDF2
+    - **檔案完整性**: SHA-256/SHA-512
+    - **高效能校驗**: BLAKE2, xxHash
+    - **區塊鏈**: SHA-256 (Bitcoin), Keccak-256 (Ethereum)
+  </Tab>
+</Tabs>
+
+## 實際應用建議
+
+針對同事遇到的 URI 數據處理問題，這裡提供完整的解決方案：
+
+<Steps>
+  <Step>
+    ### 識別數據類型
+    先判斷要處理的數據性質
+    ```javascript
+    const data = {
+      userInfo: { name: '張三', email: 'user@example.com' },
+      isPublic: true,
+      timestamp: Date.now()
+    };
+    
+    // 判斷：這是要在 URL 中傳輸的結構化數據
+    ```
+  </Step>
+  <Step>
+    ### 選擇合適的處理方式
+    根據數據特性選擇編碼方法
+    ```javascript
+    // 1. JSON → Base64 → URL Safe
+    function encodeForURL(data) {
+      const jsonString = JSON.stringify(data);
+      const base64 = btoa(unescape(encodeURIComponent(jsonString)));
+      return encodeURIComponent(base64); // URL 安全編碼
+    }
+    
+    // 2. URL Safe → Base64 → JSON
+    function decodeFromURL(encodedData) {
+      const base64 = decodeURIComponent(encodedData);
+      const jsonString = decodeURIComponent(escape(atob(base64)));
+      return JSON.parse(jsonString);
+    }
+    ```
+  </Step>
+  <Step>
+    ### 實際應用整合
+    與前端框架整合使用
+    
+    <Tabs items={['React/TanStack', 'Vue Router', 'Vanilla JS']} groupId="framework-integration">
+      <Tab value="React/TanStack">
+        ```javascript title="TanStack Router 整合"
+        import { useSearch, useNavigate } from '@tanstack/react-router';
+        
+        function DataComponent() {
+          const search = useSearch({ from: '/' });
+          const navigate = useNavigate({ from: '/' });
+          
+          // 讀取 URL 中的數據
+          const getData = () => {
+            if (search.data) {
+              return decodeFromURL(search.data);
+            }
+            return null;
+          };
+          
+          // 將數據編碼到 URL
+          const setData = (newData) => {
+            const encoded = encodeForURL(newData);
+            navigate({
+              search: { data: encoded }
+            });
+          };
+          
+          return (
+            <div>
+              <button onClick={() => setData({ message: 'Hello World!' })}>
+                設定資料到 URL
+              </button>
+              <pre>{JSON.stringify(getData(), null, 2)}</pre>
+            </div>
+          );
+        }
+        ```
+      </Tab>
+      <Tab value="Vue Router">
+        ```javascript title="Vue Router 整合"
+        // 在 Vue 組件中
+        export default {
+          methods: {
+            // 將資料編碼並導航
+            navigateWithData(data) {
+              const encoded = this.encodeForURL(data);
+              this.$router.push({
+                path: '/target',
+                query: { data: encoded }
+              });
+            },
+            
+            // 從路由解碼資料
+            getDataFromRoute() {
+              const encodedData = this.$route.query.data;
+              if (encodedData) {
+                return this.decodeFromURL(encodedData);
+              }
+              return null;
+            },
+            
+            encodeForURL(data) {
+              const jsonString = JSON.stringify(data);
+              const base64 = btoa(unescape(encodeURIComponent(jsonString)));
+              return encodeURIComponent(base64);
+            },
+            
+            decodeFromURL(encodedData) {
+              const base64 = decodeURIComponent(encodedData);
+              const jsonString = decodeURIComponent(escape(atob(base64)));
+              return JSON.parse(jsonString);
+            }
+          },
+          
+          computed: {
+            currentData() {
+              return this.getDataFromRoute();
+            }
+          }
+        }
+        ```
+      </Tab>
+      <Tab value="Vanilla JS">
+        ```javascript title="原生 JavaScript"
+        class URLDataManager {
+          constructor() {
+            this.init();
+          }
+          
+          init() {
+            // 監聽 URL 變化
+            window.addEventListener('popstate', () => {
+              this.handleURLChange();
+            });
+            
+            this.handleURLChange();
+          }
+          
+          encodeForURL(data) {
+            const jsonString = JSON.stringify(data);
+            const base64 = btoa(unescape(encodeURIComponent(jsonString)));
+            return encodeURIComponent(base64);
+          }
+          
+          decodeFromURL(encodedData) {
+            try {
+              const base64 = decodeURIComponent(encodedData);
+              const jsonString = decodeURIComponent(escape(atob(base64)));
+              return JSON.parse(jsonString);
+            } catch (error) {
+              console.error('Decode error:', error);
+              return null;
+            }
+          }
+          
+          setData(data) {
+            const encoded = this.encodeForURL(data);
+            const url = new URL(window.location);
+            url.searchParams.set('data', encoded);
+            
+            window.history.pushState({}, '', url);
+            this.handleURLChange();
+          }
+          
+          getData() {
+            const params = new URLSearchParams(window.location.search);
+            const encoded = params.get('data');
+            return encoded ? this.decodeFromURL(encoded) : null;
+          }
+          
+          handleURLChange() {
+            const data = this.getData();
+            console.log('URL 資料變更:', data);
+            // 觸發 UI 更新
+            this.updateUI(data);
+          }
+          
+          updateUI(data) {
+            const output = document.getElementById('data-output');
+            if (output) {
+              output.textContent = JSON.stringify(data, null, 2);
+            }
+          }
+        }
+        
+        // 使用範例
+        const dataManager = new URLDataManager();
+        
+        document.getElementById('set-data')?.addEventListener('click', () => {
+          dataManager.setData({
+            user: '張三',
+            timestamp: Date.now(),
+            preferences: { theme: 'dark', language: 'zh-TW' }
+          });
+        });
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+  <Step>
+    ### 處理邊界情況
+    考慮各種異常情況
+    ```javascript
+    function safeEncodeForURL(data, maxLength = 2000) {
+      try {
+        const encoded = encodeForURL(data);
+        
+        // 檢查 URL 長度限制
+        if (encoded.length > maxLength) {
+          console.warn('資料太大，考慮使用其他方式儲存');
+          return null;
+        }
+        
+        return encoded;
+      } catch (error) {
+        console.error('編碼失敗:', error);
+        return null;
+      }
+    }
+    
+    function safeDecodeFromURL(encodedData) {
+      if (!encodedData || typeof encodedData !== 'string') {
+        return null;
+      }
+      
+      try {
+        return decodeFromURL(encodedData);
+      } catch (error) {
+        console.error('解碼失敗:', error);
+        return null;
+      }
+    }
+    ```
+  </Step>
+</Steps>
+
+## 最佳實踐總結
+
+<Callout type="success" title="選擇指南">
+**URL 數據傳輸**: encodeURIComponent + JSON + Base64  
+**密碼儲存**: bcrypt 或 Argon2 + Salt  
+**檔案校驗**: SHA-256  
+**高效能哈希**: xxHash, BLAKE2  
+**HTML 顯示**: HTML entities 編碼
+</Callout>
+
+### 安全注意事項
+
+1. **不要在 URL 中放敏感資料** - URL 會被記錄在日誌中
+2. **驗證所有解碼數據** - 防止惡意輸入
+3. **設定長度限制** - 避免 URL 過長問題
+4. **使用 HTTPS** - 保護傳輸安全
+
+### 效能考量
+
+<Tabs items={['編碼效能', '儲存方案']} groupId="performance-considerations">
+  <Tab value="編碼效能">
+    ```javascript
+    // 效能測試範例
+    function performanceTest() {
+      const data = { 
+        users: Array(1000).fill({ name: 'User', id: Math.random() })
+      };
+      
+      console.time('JSON.stringify');
+      const jsonString = JSON.stringify(data);
+      console.timeEnd('JSON.stringify');
+      
+      console.time('Base64 encode');
+      const base64 = btoa(jsonString);
+      console.timeEnd('Base64 encode');
+      
+      console.time('URL encode');
+      const urlSafe = encodeURIComponent(base64);
+      console.timeEnd('URL encode');
+      
+      console.log('最終大小:', urlSafe.length, 'bytes');
+    }
+    ```
+  </Tab>
+  <Tab value="儲存方案">
+    ```javascript
+    // 根據資料大小選擇儲存方案
+    function chooseStorageMethod(data) {
+      const encoded = encodeForURL(data);
+      
+      if (encoded.length < 2000) {
+        // 小資料：使用 URL 參數
+        return { method: 'url', data: encoded };
+      } else if (encoded.length < 5000) {
+        // 中等資料：使用 sessionStorage
+        const key = `data_${Date.now()}`;
+        sessionStorage.setItem(key, encoded);
+        return { method: 'session', key: key };
+      } else {
+        // 大資料：使用後端 API + ID
+        return { method: 'api', action: 'store_data' };
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+這些概念在現代 Web 開發中非常重要，理解它們的差異和用途有助於寫出更安全、更可靠的代碼。
+
+## 相關資源
+
+<Cards>
+  <Card
+    href="/docs/backend/jwt"
+    title="JWT 機制詳解"
+  >
+    了解 JWT 如何使用 Base64 編碼和哈希簽章
+  </Card>
+  <Card
+    href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API"
+    title="Web Crypto API"
+  >
+    瀏覽器內建的加密和哈希 API 文檔
+  </Card>
+</Cards>
